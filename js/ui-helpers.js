@@ -281,7 +281,7 @@ function initLoyers(montant){
     var mo = String(d.getMonth()+1);
     if(mo.length < 2) mo = '0' + mo;
     var key = d.getFullYear() + '-' + mo;
-    rows.push({ mois: key, prevu: montant, encaisse: null, statut: 'nd' });
+    rows.push({ mois: key, prevu: montant, encaisse: null, statut: 'nd', datePaiement: '' });
   }
   return rows;
 }
@@ -984,10 +984,12 @@ function renderLoyers(b){
       var dClass = delta === null ? '' : (delta >= 0 ? 'up' : 'dn');
       var dTxt = delta === null ? '\u2014' : (delta >= 0 ? '+' : '') + Math.round(delta) + ' \u20ac';
       var valStr = l.encaisse !== null ? l.encaisse : '';
+      var datePay = l.datePaiement || '';
       html += '<div class="lrow">';
       html += '<span class="lmois">' + moisLbl(l.mois) + '</span>';
       html += '<div class="linput"><input type="number" value="' + valStr + '" placeholder="' + l.prevu + '" oninput="updLoyer(\'' + b.id + '\',' + idx + ',this.value)"></div>';
-      html += '<div class="lstatus ' + sc + '" onclick="cycleLoyer(\'' + b.id + '\',' + idx + ')">' + si + '</div>';
+      html += '<button class="lstatus ' + sc + '" style="border:none;cursor:pointer" onclick="toggleLoyerPaye(\'' + b.id + '\',' + idx + ')" title="Payé / non payé">' + si + '</button>';
+      html += '<div class="linput"><input type="date" value="' + datePay + '" onchange="updDatePaiement(\'' + b.id + '\',' + idx + ',this.value)" title="Date de paiement"></div>';
       html += '<div class="ldelta ' + dClass + '">' + dTxt + '</div>';
       html += '</div>';
     }
@@ -1030,6 +1032,42 @@ function updLoyer(bid, idx, val){
   if(recap) recap.textContent = nbTotal + ' mois \u00b7 Encaiss\u00e9 : ' + fmt(encTotal) + ' \u00b7 Pr\u00e9vu : ' + fmt(prevTotal);
 }
 
+function toggleLoyerPaye(bid, idx){
+  var b = getBien(bid);
+  if(!b) return;
+  var l = b.loyers[idx];
+  if(!l) return;
+  if(l.statut === 'ok'){
+    l.statut = 'nd';
+    l.encaisse = null;
+    l.datePaiement = '';
+  } else {
+    l.statut = 'ok';
+    l.encaisse = nv(l.prevu || b.loyer);
+    if(!l.datePaiement){
+      var d = new Date();
+      var mo = String(d.getMonth()+1); if(mo.length<2) mo='0'+mo;
+      var da = String(d.getDate()); if(da.length<2) da='0'+da;
+      l.datePaiement = d.getFullYear() + '-' + mo + '-' + da;
+    }
+  }
+  renderLoyers(b);
+  saveAll();
+}
+
+function updDatePaiement(bid, idx, val){
+  var b = getBien(bid);
+  if(!b) return;
+  var l = b.loyers[idx];
+  if(!l) return;
+  l.datePaiement = val || '';
+  if(val && l.statut !== 'ok'){
+    l.statut = 'ok';
+    if(l.encaisse === null) l.encaisse = nv(l.prevu || b.loyer);
+  }
+  saveAll();
+}
+
 function cycleLoyer(bid, idx){
   var b = getBien(bid);
   if(!b) return;
@@ -1065,7 +1103,7 @@ function addMois(bid){
     var mo = String(d.getMonth()+1); if(mo.length<2) mo='0'+mo;
     var key = d.getFullYear() + '-' + mo;
     if(!existing[key]){
-      b.loyers.push({mois:key, prevu:b.loyer, encaisse:null, statut:'nd'});
+      b.loyers.push({mois:key, prevu:b.loyer, encaisse:null, statut:'nd', datePaiement:''});
       b.loyers.sort(function(a,z){ return a.mois < z.mois ? -1 : 1; });
       renderLoyers(b); // préserve les blocs ouverts grâce à getOpenYears/restoreOpenYears
       saveAll();
@@ -1087,7 +1125,7 @@ function autoGenererMoisAnnee(b){
     var mo = String(m+1); if(mo.length<2) mo='0'+mo;
     var key = year + '-' + mo;
     if(!existing[key]){
-      b.loyers.push({mois:key, prevu:b.loyer, encaisse:null, statut:'nd'});
+      b.loyers.push({mois:key, prevu:b.loyer, encaisse:null, statut:'nd', datePaiement:''});
       added = true;
     }
   }
@@ -2213,20 +2251,24 @@ function snapshotPatrimoine(){
 }
 
 function saveAll(){
-  // v2.8 : snapshot mensuel automatique avant sauvegarde
-  snapshotPatrimoine();
+  // Sauvegarde locale prioritaire. Le cloud est optionnel et ne doit jamais empêcher
+  // l'enregistrement local, sinon un bien disparaît au rechargement.
+  try { snapshotPatrimoine(); } catch(e) {}
   S._v = DATA_VERSION;
   var ok = STORE.save(STORE_KEY, S);
   if(ok){
     var lbl=gid('data-version-lbl');
-    if(lbl) lbl.textContent='SUIVI \u00b7 RENDEMENT \u00b7 v'+DATA_VERSION+' \u00b7 '+S.biens.length+' bien(s)';
-    // v3.0 : sync cloud silencieuse après sauvegarde locale
-    syncCloudSilencieux();
+    if(lbl) lbl.textContent='SUIVI · RENDEMENT · v'+DATA_VERSION+' · '+S.biens.length+' bien(s)';
+    try {
+      if (typeof syncCloudSilencieux === 'function') syncCloudSilencieux();
+    } catch(e) { /* le cloud ne doit jamais bloquer la sauvegarde locale */ }
+    return true;
   } else {
     if(!window._storeWarned){
       window._storeWarned = true;
-      alert('Attention : la sauvegarde automatique ne fonctionne pas (navigation priv\u00e9e ou stockage plein). Pensez \u00e0 exporter un Backup JSON r\u00e9guli\u00e8rement.');
+      alert('Attention : la sauvegarde automatique ne fonctionne pas (navigation privée ou stockage plein). Pensez à exporter un Backup JSON régulièrement.');
     }
+    return false;
   }
 }
 
@@ -2234,6 +2276,10 @@ function loadAll(){
   try{
     var data = STORE.load(STORE_KEY);
     if(!data || !data.biens) return;
+
+    // Patch stabilité : éviter les doublons ou états incohérents si loadAll() est appelé plusieurs fois.
+    S.biens = [];
+    S.historiquePatrimoine = [];
 
     // Étape 1 : vérification version
     if(data._v && data._v > DATA_VERSION){
@@ -2592,7 +2638,7 @@ function loadExemple(){
       var mo=String(d.getMonth()+1); if(mo.length<2) mo='0'+mo;
       var key=d.getFullYear()+'-'+mo;
       var ok=i>1;
-      rows.push({mois:key,prevu:loyer,encaisse:ok?loyer:null,statut:ok?'ok':'nd'});
+      rows.push({mois:key,prevu:loyer,encaisse:ok?loyer:null,statut:ok?'ok':'nd',datePaiement:ok?key+'-05':''});
     }
     return rows;
   }

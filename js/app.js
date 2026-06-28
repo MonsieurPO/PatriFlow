@@ -215,6 +215,10 @@ function renderDashboard() {
 
   // Graphique patrimoine
   renderGraphiquePatrimoine();
+
+  // Patch stabilité : l'aperçu "Mes biens" du dashboard doit être reconstruit
+  // à chaque rendu, sinon un bien ajouté n'apparaît pas avant rechargement complet.
+  if (typeof renderDashBiensApercu === 'function') renderDashBiensApercu();
 }
 
 function kpiCard(label, value, valueClass, sub) {
@@ -980,32 +984,36 @@ function renderCredits() {
 function renderLoyers2() {
   var locs = biensLocatifs(S.biens);
   if (!locs.length) {
-    setHTML('page-loyers-content', '<div class="empty-state"><div class="empty-icon">💶</div><div class="empty-title">Aucun bien locatif</div></div>');
+    setHTML('page-loyers-content', '<div class="empty-state"><div class="empty-icon">💶</div><div class="empty-title">Aucun bien locatif</div><div class="empty-desc">Ajoutez un bien de type locatif pour suivre les loyers.</div></div>');
     return;
   }
 
-  // Pour chaque bien locatif, afficher son suivi loyers
-  var html = '';
+  var selectedId = window.SELECTED_LOYER_BIEN_ID || locs[0].id;
+  var exists = false;
+  for (var i = 0; i < locs.length; i++) if (locs[i].id === selectedId) exists = true;
+  if (!exists) selectedId = locs[0].id;
+  window.SELECTED_LOYER_BIEN_ID = selectedId;
+
+  var bsel = getBien(selectedId) || locs[0];
+
+  var html = '<div class="card mb-4"><div class="card-header" style="align-items:flex-end;flex-wrap:wrap;gap:12px">';
+  html += '<div><div class="card-title">Suivi des loyers</div><div class="text-xs text-secondary">Sélectionnez un appartement, puis cochez les mois payés un par un.</div></div>';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+  html += '<select class="form-input" style="width:auto;min-width:240px" onchange="window.SELECTED_LOYER_BIEN_ID=this.value;renderLoyers2()">';
   for (var i = 0; i < locs.length; i++) {
     var b = locs[i];
-    html += '<div class="card mb-4">';
-    html += '<div class="card-header">';
-    html += '<div class="card-title">' + escapeHTML(b.nom) + '</div>';
-    html += '<div class="flex gap-2">';
-    html += '<button class="btn btn-secondary btn-sm" onclick="toutOk(\'' + b.id + '\')">✓ Tout encaissé</button>';
-    html += '<button class="btn btn-primary btn-sm" onclick="addMois(\'' + b.id + '\')">+ Mois</button>';
-    html += '</div></div>';
-    html += '<div class="card-body-sm">';
-    html += '<div id="lrows-' + b.id + '"></div>';
-    html += '<div id="lrecap-' + b.id + '" class="text-xs text-secondary mt-2"></div>';
-    html += '</div></div>';
+    html += '<option value="' + b.id + '"' + (b.id === selectedId ? ' selected' : '') + '>' + escapeHTML(b.nom) + '</option>';
   }
+  html += '</select>';
+  html += '<button class="btn btn-primary btn-sm" onclick="addMois(\'' + bsel.id + '\');renderLoyers2()">+ Mois</button>';
+  html += '</div></div>';
+  html += '<div class="card-body-sm">';
+  html += '<div class="alert alert-info mb-3" style="font-size:12px">Le bouton ✓ sur une ligne marque uniquement ce mois comme payé. Le montant et la date peuvent être ajustés.</div>';
+  html += '<div id="lrows-' + bsel.id + '"></div>';
+  html += '<div id="lrecap-' + bsel.id + '" class="text-xs text-secondary mt-2"></div>';
+  html += '</div></div>';
   setHTML('page-loyers-content', html);
-
-  // Render loyers pour chaque bien
-  for (var i = 0; i < locs.length; i++) {
-    renderLoyers(locs[i]);
-  }
+  renderLoyers(bsel);
 }
 
 /* ── PAGE DOCUMENTS ──────────────────────────────────────── */

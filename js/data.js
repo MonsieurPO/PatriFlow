@@ -165,6 +165,16 @@ function normalizeBien(b) {
   b.fraisCourtier = b.fraisCourtier !== undefined ? nv(b.fraisCourtier) : 0;
   b.apport        = b.apport        !== undefined ? nv(b.apport)        : 0;
   b.duree         = b.duree         !== undefined ? nv(b.duree)         : 0;
+
+  // Patch projet : si les frais détaillés existent, ils alimentent le total de frais.
+  if (b.fraisNotaire || b.fraisAgence || b.fraisCourtier) {
+    b.frais = nv(b.fraisNotaire) + nv(b.fraisAgence) + nv(b.fraisCourtier);
+  }
+
+  // Patch loyers : rétrocompatibilité avec les anciens mois sans date de paiement.
+  for (var i = 0; i < b.loyers.length; i++) {
+    if (b.loyers[i].datePaiement === undefined) b.loyers[i].datePaiement = '';
+  }
   return b;
 }
 
