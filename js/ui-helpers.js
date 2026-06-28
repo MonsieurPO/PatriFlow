@@ -32,34 +32,17 @@ function goPage(name, btn){
 }
 
 function addNavTab(b){
-  if(!b || !b.id) return;
   if(gid('btn-bien-' + b.id)) return;
-
-  // Compatibilité avec la nouvelle interface PatriFlow :
-  // l'ancien HTML possédait #mainnav et #btn-add ; la nouvelle sidebar utilise .sidebar-nav.
-  // Si #mainnav n'existe pas, on ignore simplement l'ajout d'onglet dynamique
-  // au lieu de bloquer tout le chargement de l'application.
   var nav = gid('mainnav');
   var addBtn = gid('btn-add');
-  if(!nav){
-    console.warn('addNavTab ignoré : #mainnav introuvable dans cette version de l’interface.');
-    return;
-  }
-
   var btn = document.createElement('button');
   btn.className = 'nb';
   btn.id = 'btn-bien-' + b.id;
-  var nom = b.nom || 'Bien';
-  var shortName = nom.length > 10 ? nom.slice(0,10) + '...' : nom;
+  var shortName = b.nom.length > 10 ? b.nom.slice(0,10) + '...' : b.nom;
   btn.textContent = shortName;
   btn.setAttribute('data-bid', b.id);
   btn.onclick = function(){ goPage('bien-' + b.id, btn); };
-
-  if(addBtn && addBtn.parentNode === nav){
-    nav.insertBefore(btn, addBtn);
-  } else {
-    nav.appendChild(btn);
-  }
+  nav.insertBefore(btn, addBtn);
 }
 
 // v2.3 : met à jour le libellé de l'onglet nav après renommage d'un bien
@@ -2294,16 +2277,16 @@ function loadAll(){
     var data = STORE.load(STORE_KEY);
     if(!data || !data.biens) return;
 
-    // Patch stabilité : éviter les doublons ou états incohérents si loadAll() est appelé plusieurs fois.
-    S.biens = [];
-    S.historiquePatrimoine = [];
+    // Patch stabilité v3 : loadAll ne doit charger QUE les données.
+    // L'ancien code reconstruisait aussi des pages héritées (#bien-pages/#mainnav),
+    // absentes dans la nouvelle interface. Cela faisait planter le chargement au milieu
+    // et seuls les premiers biens apparaissaient après rafraîchissement.
+    var loadedBiens = [];
 
-    // Étape 1 : vérification version
     if(data._v && data._v > DATA_VERSION){
       alert('Attention : les donn\u00e9es sauvegard\u00e9es sont plus r\u00e9centes que cette version de l\'application (v'+data._v+' > v'+DATA_VERSION+'). Veuillez utiliser la derni\u00e8re version du fichier HTML.');
     }
 
-    // Étape 3 : charger S.config si présent
     if(data.config){
       S.config.revenusMensuels    = nv(data.config.revenusMensuels);
       S.config.tauxEndettementMax = nv(data.config.tauxEndettementMax) || 35;
@@ -2312,24 +2295,23 @@ function loadAll(){
       S.config.tauxNotaireDefaut  = nv(data.config.tauxNotaireDefaut)  || 8;
       S.config.fraisDossierDefaut = nv(data.config.fraisDossierDefaut) || 1500;
     }
-    // v2.8 : charger l'historique patrimoine (rétrocompat : vide si absent)
-    S.historiquePatrimoine = data.historiquePatrimoine || [];
 
-    // Étape 1 : normalizeBien sur chaque bien au chargement
     for(var i=0; i<data.biens.length; i++){
-      var b = normalizeBien(data.biens[i]);  // filet de sécurité
-      // ÉTAPE 4 (v4) : génération auto des mois manquants de l'année en cours
+      var b = normalizeBien(data.biens[i]);
       autoGenererMoisAnnee(b);
-      S.biens.push(b);
-      addNavTab(b);
-      buildBienPage(b);
-      if(b.type === 'loc') renderLoyers(b);
-      renderTravaux(b);
+      loadedBiens.push(b);
     }
 
+    S.biens = loadedBiens;
+    S.historiquePatrimoine = data.historiquePatrimoine || [];
+    S._v = DATA_VERSION;
+
     loadConfig();
-    refreshDash();
-  } catch(e) { /* load error */ }
+    // Ne pas appeler addNavTab(), buildBienPage(), renderLoyers(), renderTravaux() ici.
+    // La nouvelle interface est rendue ensuite par initUI()/navigateTo().
+  } catch(e) {
+    console.error('Erreur loadAll()', e);
+  }
 }
 
 function exportData(){
