@@ -1464,3 +1464,135 @@ function updateSidebarUser() {
     dot.className = 'status-dot ' + (SUPA_USER ? 'connected' : '');
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   PAT RIFLOW — CARTES FISCALES ANNUELLES
+   Ajoute des synthèses sans supprimer ni remplacer les cartes existantes.
+   ═══════════════════════════════════════════════════════════ */
+function pfAppEuro(v){ return typeof fmtEuro === 'function' ? fmtEuro(v) : Math.round(nv(v)).toLocaleString('fr-FR')+' €'; }
+function pfAppPct(v){ return typeof fmtPct === 'function' ? fmtPct(v) : (Math.round(v*10)/10).toString().replace('.', ',')+' %'; }
+
+function renderCarteFiscaleParcHTML(annee, compact){
+  if(typeof calcFiscalParcPro !== 'function') return '';
+  var rep = calcFiscalParcPro(annee || new Date().getFullYear(), {projection: compact === true});
+  var t = rep.total;
+  var html = '<div class="card mb-6" id="carte-fiscale-parc">';
+  html += '<div class="card-header"><div><div class="card-title">Aide déclaration fiscale — parc immobilier</div>';
+  html += '<div class="text-xs text-secondary">Année ' + rep.annee + ' · estimation structurée à vérifier avant déclaration</div></div>';
+  html += '<div style="display:flex;gap:8px;align-items:center"><select class="form-input" style="width:auto" onchange="renderFiscalYearChange(this.value)">';
+  var nowY = new Date().getFullYear();
+  for(var y=nowY-2; y<=nowY+1; y++) html += '<option value="'+y+'"'+(parseInt(rep.annee,10)===y?' selected':'')+'>'+y+'</option>';
+  html += '</select></div></div>';
+  html += '<div class="card-body">';
+  if(!rep.rows.length){
+    html += '<div class="empty-state" style="padding:16px"><div class="empty-title">Aucun bien locatif actif</div><div class="empty-desc">La carte fiscale se remplira avec vos biens locatifs.</div></div>';
+  } else {
+    html += '<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">';
+    html += kpiCard('Loyers encaissés', pfAppEuro(t.loyersEncaisses), '', 'Somme des loyers marqués avec montant encaissé');
+    html += kpiCard('Charges déductibles', pfAppEuro(t.chargesDeductibles), 'text-red', 'Selon régime réel uniquement');
+    html += kpiCard('Base imposable', pfAppEuro(t.baseImposable), '', 'Après abattement ou charges');
+    html += kpiCard('Impôts estimés', pfAppEuro(t.impotTotal), 'text-red', 'IR ' + pfAppEuro(t.ir) + ' · PS ' + pfAppEuro(t.ps));
+    html += '</div>';
+    html += '<div class="table-wrapper"><table class="data-table"><thead><tr><th>Bien</th><th>Régime</th><th class="col-number">Loyers</th><th class="col-number">Charges</th><th class="col-number">Base</th><th class="col-number">IR</th><th class="col-number">PS</th><th class="col-number">Total impôts</th><th>Statut</th></tr></thead><tbody>';
+    for(var i=0;i<rep.rows.length;i++){
+      var r=rep.rows[i];
+      var ok = r.declarationReady;
+      html += '<tr onclick="navigateTo(\'bien\',\''+r.bienId+'\')">';
+      html += '<td data-label="Bien"><strong>'+r.nom+'</strong><div class="text-xs text-secondary">'+r.nbMoisEncaisses+' mois encaissé(s)</div></td>';
+      html += '<td data-label="Régime">'+r.regimeLabel+'</td>';
+      html += '<td data-label="Loyers" class="col-number font-mono">'+pfAppEuro(r.loyersUtilises)+'</td>';
+      html += '<td data-label="Charges" class="col-number font-mono">'+pfAppEuro(r.chargesDeductibles)+'</td>';
+      html += '<td data-label="Base" class="col-number font-mono">'+pfAppEuro(r.baseImposable)+'</td>';
+      html += '<td data-label="IR" class="col-number font-mono">'+pfAppEuro(r.ir)+'</td>';
+      html += '<td data-label="PS" class="col-number font-mono">'+pfAppEuro(r.ps)+'</td>';
+      html += '<td data-label="Total" class="col-number font-mono" style="color:var(--color-red)">'+pfAppEuro(r.impotTotal)+'</td>';
+      html += '<td data-label="Statut">'+(ok?'<span class="badge badge-actif">Prêt à vérifier</span>':'<span class="badge badge-projet">À compléter</span>')+'</td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    html += '<div class="card mt-4"><div class="card-header"><div class="card-title">Détail annuel consolidé</div></div><div class="card-body-sm">';
+    html += tableRow('Loyers encaissés', pfAppEuro(t.loyersEncaisses));
+    html += tableRow('Taxe foncière', pfAppEuro(t.taxeFonciere));
+    html += tableRow('PNO', pfAppEuro(t.pno));
+    html += tableRow('Charges copropriété', pfAppEuro(t.copro));
+    html += tableRow('Frais de gestion', pfAppEuro(t.gestion));
+    html += tableRow('Assurance emprunteur', pfAppEuro(t.assuranceEmprunteur));
+    html += tableRow('Intérêts d’emprunt', pfAppEuro(t.interets));
+    html += tableRow('Travaux enregistrés', pfAppEuro(t.travauxTotal) + (t.travauxNonQualifies>0 ? ' <span class="text-xs text-amber">à qualifier</span>' : ''));
+    html += tableRow('Base imposable totale', '<strong>'+pfAppEuro(t.baseImposable)+'</strong>');
+    html += tableRow('Impôt sur le revenu estimé', '<span style="color:var(--color-red)">'+pfAppEuro(t.ir)+'</span>');
+    html += tableRow('Prélèvements sociaux', '<span style="color:var(--color-red)">'+pfAppEuro(t.ps)+'</span>');
+    html += tableRow('Total fiscal estimé', '<strong style="color:var(--color-red)">'+pfAppEuro(t.impotTotal)+'</strong>');
+    html += '</div></div>';
+    if(rep.avertissements.length){
+      html += '<div class="alert alert-warning mt-4"><div><strong>Points à vérifier avant déclaration</strong><br><ul style="margin:6px 0 0 18px">';
+      var max = compact ? Math.min(3, rep.avertissements.length) : rep.avertissements.length;
+      for(var w=0; w<max; w++) html += '<li>'+rep.avertissements[w]+'</li>';
+      if(compact && rep.avertissements.length>3) html += '<li>+'+(rep.avertissements.length-3)+' autre(s) point(s) dans la synthèse.</li>';
+      html += '</ul></div></div>';
+    }
+    html += '<div class="text-xs text-secondary mt-3">Important : cette carte prépare les montants utiles. Les travaux non qualifiés, le LMNP réel et les cas particuliers doivent être vérifiés avant déclaration.</div>';
+  }
+  html += '</div></div>';
+  return html;
+}
+
+function renderFiscalYearChange(year){
+  var target = gid('carte-fiscale-parc');
+  if(target){
+    var wrap = document.createElement('div');
+    wrap.innerHTML = renderCarteFiscaleParcHTML(parseInt(year,10), false);
+    target.parentNode.replaceChild(wrap.firstChild, target);
+  }
+}
+
+function injectFiscalDashboard(){
+  var flux = gid('dash-flux-mensuels');
+  var parent = flux && flux.parentNode ? flux.parentNode : null;
+  if(!parent) return;
+  var old = gid('dash-fiscal-mini');
+  if(old) old.parentNode.removeChild(old);
+  var rep = typeof calcFiscalParcPro === 'function' ? calcFiscalParcPro(new Date().getFullYear(), {projection:true}) : null;
+  if(!rep || !rep.rows.length) return;
+  var div = document.createElement('div');
+  div.id = 'dash-fiscal-mini';
+  div.className = 'card mb-6';
+  div.innerHTML = '<div class="card-header"><div><div class="card-title">Fiscalité estimée '+rep.annee+'</div><div class="text-xs text-secondary">Vue rapide · détail complet dans Synthèse</div></div><button class="btn btn-ghost btn-sm" onclick="navigateTo(\'cockpit\')">Voir détail →</button></div>'+
+    '<div class="card-body"><div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:0">'+
+    kpiCard('Loyers encaissés', pfAppEuro(rep.total.loyersEncaisses), '', '')+
+    kpiCard('Base imposable', pfAppEuro(rep.total.baseImposable), '', '')+
+    kpiCard('IR estimé', pfAppEuro(rep.total.ir), 'text-red', '')+
+    kpiCard('PS estimés', pfAppEuro(rep.total.ps), 'text-red', '')+
+    '</div></div>';
+  parent.insertBefore(div, flux.nextSibling);
+}
+
+function injectFiscalCockpit(){
+  var cont = gid('page-cockpit-content');
+  if(!cont) return;
+  var old = gid('carte-fiscale-parc');
+  if(old) old.parentNode.removeChild(old);
+  var html = renderCarteFiscaleParcHTML(new Date().getFullYear(), false);
+  if(!html) return;
+  var wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  var ref = gid('cockpit-alertes');
+  if(ref && ref.parentNode === cont) cont.insertBefore(wrap.firstChild, ref.nextSibling);
+  else cont.insertBefore(wrap.firstChild, cont.firstChild);
+}
+
+if(typeof renderDashboard === 'function'){
+  var _pfBaseRenderDashboardFiscal = renderDashboard;
+  renderDashboard = function(){
+    _pfBaseRenderDashboardFiscal();
+    injectFiscalDashboard();
+  };
+}
+if(typeof renderCockpit === 'function'){
+  var _pfBaseRenderCockpitFiscal = renderCockpit;
+  renderCockpit = function(){
+    _pfBaseRenderCockpitFiscal();
+    injectFiscalCockpit();
+  };
+}
