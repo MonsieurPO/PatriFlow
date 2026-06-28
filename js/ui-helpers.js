@@ -2354,30 +2354,27 @@ function importData(event){
       return;
     }
 
-    // Validation minimale de structure
+    // Compatibilité : backup direct {biens:[]} ou export Supabase {data:{biens:[]}}
+    if(data && data.data && data.data.biens) data = data.data;
+
     if(!data || typeof data !== 'object' || !data.biens || !data.biens.length){
-      alert('Fichier invalide : structure de donn\u00e9es non reconnue (champ "biens" manquant ou vide).');
+      alert('Fichier invalide : structure de données non reconnue. Le fichier doit contenir un champ "biens".');
       event.target.value = '';
       return;
     }
 
-    // Avertissement version future
     if(data._v && data._v > DATA_VERSION){
-      var proceedFuture = confirm('Ce fichier provient d\'une version plus r\u00e9cente (v'+data._v+' > v'+DATA_VERSION+').\nL\'import peut perdre des informations propres \u00e0 cette version future.\n\nContinuer quand m\u00eame ?');
+      var proceedFuture = confirm('Ce fichier provient d\'une version plus récente (v'+data._v+' > v'+DATA_VERSION+').\nL\'import peut perdre des informations propres à cette version future.\n\nContinuer quand même ?');
       if(!proceedFuture){ event.target.value=''; return; }
     }
 
-    // Confirmation destructive
-    var nbActuels = S.biens.length;
+    var nbActuels = S && S.biens ? S.biens.length : 0;
     var nbNouveaux = data.biens.length;
-    var msg = 'Importer ce fichier remplacera TOUTES les donn\u00e9es actuelles ('+nbActuels+' bien(s)) par celles du fichier ('+nbNouveaux+' bien(s)).\n\nCette action est irr\u00e9versible (sauf si vous avez un autre backup).\n\nContinuer ?';
+    var msg = 'Importer ce fichier remplacera TOUTES les données actuelles ('+nbActuels+' bien(s)) par celles du fichier ('+nbNouveaux+' bien(s)).\n\nCette action est irréversible (sauf si vous avez un autre backup).\n\nContinuer ?';
     if(!confirm(msg)){ event.target.value=''; return; }
 
-    // --- Remplacement de l'état ---
-    resetUI();
-
-    // Réinitialiser S avec les valeurs par défaut, puis fusionner config
-    S = {
+    // Construction d'un état propre, sans dépendre du rendu de la page actuelle.
+    var newState = {
       biens: [],
       config: {
         revenusMensuels:    0,
@@ -2387,37 +2384,38 @@ function importData(event){
         tauxNotaireDefaut:  8,
         fraisDossierDefaut: 1500
       },
+      historiquePatrimoine: data.historiquePatrimoine || [],
       _v: DATA_VERSION
     };
 
     if(data.config){
-      S.config.revenusMensuels    = nv(data.config.revenusMensuels);
-      S.config.tauxEndettementMax = nv(data.config.tauxEndettementMax) || 35;
-      S.config.loyersPrisEnCompte = nv(data.config.loyersPrisEnCompte) || 70;
-      S.config.margeSecurite      = nv(data.config.margeSecurite)      || 10;
-      S.config.tauxNotaireDefaut  = nv(data.config.tauxNotaireDefaut)  || 8;
-      S.config.fraisDossierDefaut = nv(data.config.fraisDossierDefaut) || 1500;
+      newState.config.revenusMensuels    = nv(data.config.revenusMensuels);
+      newState.config.tauxEndettementMax = nv(data.config.tauxEndettementMax) || 35;
+      newState.config.loyersPrisEnCompte = nv(data.config.loyersPrisEnCompte) || 70;
+      newState.config.margeSecurite      = nv(data.config.margeSecurite)      || 10;
+      newState.config.tauxNotaireDefaut  = nv(data.config.tauxNotaireDefaut)  || 8;
+      newState.config.fraisDossierDefaut = nv(data.config.fraisDossierDefaut) || 1500;
     }
-    // v2.8 : restaurer l'historique patrimoine depuis le backup
-    S.historiquePatrimoine = data.historiquePatrimoine || [];
 
-    // normalizeBien sur chaque bien importé (migration de schema)
     for(var i=0; i<data.biens.length; i++){
       var b = normalizeBien(data.biens[i]);
       autoGenererMoisAnnee(b);
-      S.biens.push(b);
-      addNavTab(b);
-      buildBienPage(b);
-      if(b.type === 'loc') renderLoyers(b);
-      renderTravaux(b);
+      newState.biens.push(b);
     }
 
-    loadConfig();
-    refreshDash();
-    saveAll();
+    // Sauvegarde directe dans localStorage AVANT tout rendu.
+    // Cela évite les bugs où l'écran reste sur l'ancien état après import.
+    var ok = STORE.save(STORE_KEY, newState);
+    if(!ok){
+      alert('Import impossible : le stockage local du navigateur est bloqué ou plein. Essayez hors navigation privée, ou videz le cache du site.');
+      event.target.value = '';
+      return;
+    }
 
-    alert('Import r\u00e9ussi : '+nbNouveaux+' bien(s) charg\u00e9(s).');
+    S = newState;
     event.target.value = '';
+    alert('Import réussi : '+nbNouveaux+' bien(s) chargés. La page va se recharger pour appliquer les données.');
+    window.location.reload();
   };
   reader.onerror = function(){
     alert('Erreur de lecture du fichier.');
