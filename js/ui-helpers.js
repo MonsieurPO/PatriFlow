@@ -979,15 +979,19 @@ function renderLoyers(b){
       var enc = l.encaisse !== null ? nv(l.encaisse) : 0;
       var prev = nv(l.prevu);
       var delta = l.encaisse !== null ? enc - prev : null;
-      var sc = l.statut === 'ok' ? 'lok' : l.statut === 'nok' ? 'lnok' : 'lnd';
-      var si = l.statut === 'ok' ? '\u2713' : l.statut === 'nok' ? '\u2717' : '\u00b7';
       var dClass = delta === null ? '' : (delta >= 0 ? 'up' : 'dn');
       var dTxt = delta === null ? '\u2014' : (delta >= 0 ? '+' : '') + Math.round(delta) + ' \u20ac';
       var valStr = l.encaisse !== null ? l.encaisse : '';
-      html += '<div class="lrow">';
+      var dPay = l.datePaiement || '';
+      html += '<div class="lrow" style="grid-template-columns:110px 110px minmax(260px,1fr) 150px 80px;gap:8px;align-items:center">';
       html += '<span class="lmois">' + moisLbl(l.mois) + '</span>';
       html += '<div class="linput"><input type="number" value="' + valStr + '" placeholder="' + l.prevu + '" oninput="updLoyer(\'' + b.id + '\',' + idx + ',this.value)"></div>';
-      html += '<div class="lstatus ' + sc + '" onclick="cycleLoyer(\'' + b.id + '\',' + idx + ')">' + si + '</div>';
+      html += '<div class="loyer-actions" style="display:flex;gap:6px;flex-wrap:wrap">';
+      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'ok' ? 'btn-success' : 'btn-secondary') + '" style="min-height:34px;padding:6px 10px" onclick="setLoyerStatut(\'' + b.id + '\',' + idx + ',\'ok\')">Payé</button>';
+      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'nok' ? 'btn-danger' : 'btn-secondary') + '" style="min-height:34px;padding:6px 10px" onclick="setLoyerStatut(\'' + b.id + '\',' + idx + ',\'nok\')">Non payé</button>';
+      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'nd' ? 'btn-primary' : 'btn-ghost') + '" style="min-height:34px;padding:6px 10px" onclick="setLoyerStatut(\'' + b.id + '\',' + idx + ',\'nd\')">À vérifier</button>';
+      html += '</div>';
+      html += '<input type="date" class="form-input" style="height:34px;padding:4px 8px;font-size:12px" value="' + dPay + '" onchange="updLoyerDate(\'' + b.id + '\',' + idx + ',this.value)">';
       html += '<div class="ldelta ' + dClass + '">' + dTxt + '</div>';
       html += '</div>';
     }
@@ -1028,6 +1032,38 @@ function updLoyer(bid, idx, val){
   }
   var recap = gid('lrecap-' + bid);
   if(recap) recap.textContent = nbTotal + ' mois \u00b7 Encaiss\u00e9 : ' + fmt(encTotal) + ' \u00b7 Pr\u00e9vu : ' + fmt(prevTotal);
+}
+
+function setLoyerStatut(bid, idx, statut){
+  var b = getBien(bid);
+  if(!b || !b.loyers || !b.loyers[idx]) return;
+  var l = b.loyers[idx];
+  l.statut = statut;
+  if(statut === 'ok'){
+    if(l.encaisse === null || nv(l.encaisse) === 0) l.encaisse = nv(l.prevu);
+    if(!l.datePaiement){
+      var d = new Date();
+      var m = String(d.getMonth()+1); if(m.length<2) m='0'+m;
+      var day = String(d.getDate()); if(day.length<2) day='0'+day;
+      l.datePaiement = d.getFullYear() + '-' + m + '-' + day;
+    }
+  } else if(statut === 'nok'){
+    l.encaisse = 0;
+    l.datePaiement = '';
+  } else {
+    l.statut = 'nd';
+    l.encaisse = null;
+    l.datePaiement = '';
+  }
+  renderLoyers(b);
+  saveAll();
+}
+
+function updLoyerDate(bid, idx, val){
+  var b = getBien(bid);
+  if(!b || !b.loyers || !b.loyers[idx]) return;
+  b.loyers[idx].datePaiement = val || '';
+  saveAll();
 }
 
 function cycleLoyer(bid, idx){
