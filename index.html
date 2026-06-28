@@ -313,92 +313,136 @@
             <div class="form-row mb-4">
               <div class="form-group">
                 <label class="form-label">Prix d'achat <em>€</em></label>
-                <input type="number" class="form-input" id="nb-achat" placeholder="142000">
+                <input type="number" class="form-input" id="nb-achat" placeholder="142000" oninput="calcMensualiteAuto()">
               </div>
               <div class="form-group">
-                <label class="form-label">Frais notaire+agence <em>€</em></label>
-                <input type="number" class="form-input" id="nb-frais" placeholder="11000">
+                <label class="form-label">Frais de notaire <em>€</em></label>
+                <input type="number" class="form-input" id="nb-fraisNotaire" placeholder="11000" oninput="calcMensualiteAuto()">
               </div>
             </div>
             <div class="form-row mb-4">
+              <div class="form-group">
+                <label class="form-label">Frais d'agence <em>€</em></label>
+                <input type="number" class="form-input" id="nb-fraisAgence" placeholder="4900" oninput="calcMensualiteAuto()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Frais de courtier <em>€</em></label>
+                <input type="number" class="form-input" id="nb-fraisCourtier" placeholder="0" oninput="calcMensualiteAuto()">
+              </div>
+            </div>
+            <div class="form-row mb-4">
+              <div class="form-group">
+                <label class="form-label">Travaux à l'achat <em>€</em></label>
+                <input type="number" class="form-input" id="nb-travauxAchat" placeholder="3000" oninput="calcMensualiteAuto()">
+              </div>
               <div class="form-group">
                 <label class="form-label">Valeur estimée <em>€</em></label>
                 <input type="number" class="form-input" id="nb-valeur" placeholder="220000">
               </div>
-              <div class="form-group">
-                <label class="form-label">Date d'achat</label>
-                <input type="date" class="form-input" id="nb-date">
-              </div>
+            </div>
+            <div class="form-group mb-4">
+              <label class="form-label">Date d'achat</label>
+              <input type="date" class="form-input" id="nb-date">
             </div>
 
-            <div class="divider-label">Crédit</div>
+            <div class="divider-label">Financement du crédit</div>
             <div class="form-row mb-4">
               <div class="form-group">
-                <label class="form-label">Capital emprunté <em>€</em></label>
-                <input type="number" class="form-input" id="nb-capitalInit" placeholder="142000">
+                <label class="form-label">Apport personnel <em>€</em></label>
+                <input type="number" class="form-input" id="nb-apport" placeholder="0" oninput="calcMensualiteAuto()">
               </div>
               <div class="form-group">
-                <label class="form-label">Capital restant dû <em>€</em></label>
-                <input type="number" class="form-input" id="nb-capitalDu" placeholder="129168">
+                <label class="form-label">Taux du crédit <em>%</em></label>
+                <input type="number" class="form-input" id="nb-taux" placeholder="3.10" step="0.01" oninput="calcMensualiteAuto()">
               </div>
             </div>
             <div class="form-row mb-4">
               <div class="form-group">
-                <label class="form-label">Mensualité <em>€</em></label>
-                <input type="number" class="form-input" id="nb-mens" placeholder="748">
+                <label class="form-label">Durée <em>années</em></label>
+                <input type="number" class="form-input" id="nb-duree" placeholder="20" oninput="calcMensualiteAuto()">
               </div>
               <div class="form-group">
                 <label class="form-label">Assurance <em>€/m</em></label>
-                <input type="number" class="form-input" id="nb-assur" placeholder="0">
-              </div>
-            </div>
-            <div class="form-row mb-4">
-              <div class="form-group">
-                <label class="form-label">Taux <em>%</em></label>
-                <input type="number" class="form-input" id="nb-taux" placeholder="3.10" step="0.01">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Fin de crédit</label>
-                <input type="date" class="form-input" id="nb-fincredit">
+                <input type="number" class="form-input" id="nb-assur" placeholder="12" oninput="calcMensualiteAuto()">
               </div>
             </div>
 
+            <!-- Encart calcul automatique de la mensualité -->
+            <div id="calc-mens-box" style="background:var(--color-bg);border:1px solid var(--color-border);border-radius:10px;padding:14px;margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <div>
+                  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--color-text-muted)">Montant emprunté</div>
+                  <div id="calc-capital" style="font-size:16px;font-weight:700;font-family:var(--font-mono)">—</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--color-text-muted)">Mensualité estimée (crédit + assurance)</div>
+                  <div id="calc-mens" style="font-size:20px;font-weight:700;font-family:var(--font-mono);color:var(--color-blue)">—</div>
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--color-text-muted);margin-top:8px">
+                Capital = prix + notaire + agence + courtier + travaux − apport. La mensualité se calcule automatiquement.
+              </div>
+            </div>
+
+            <!-- Champs cachés alimentés par le calcul -->
+            <input type="hidden" id="nb-capitalInit">
+            <input type="hidden" id="nb-capitalDu">
+            <input type="hidden" id="nb-mens">
+            <input type="hidden" id="nb-fincredit">
+
             <div id="loc-fields" style="display:none">
-              <div class="divider-label">Locatif</div>
+              <div class="divider-label">Revenus & charges locatives</div>
               <div class="form-row mb-4">
                 <div class="form-group">
                   <label class="form-label">Loyer mensuel HC <em>€</em></label>
                   <input type="number" class="form-input" id="nb-loyer" placeholder="395">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Taxe foncière <em>€/an</em></label>
-                  <input type="number" class="form-input" id="nb-tf" placeholder="800">
+                  <label class="form-label">Charges locataire <em>€/m</em></label>
+                  <input type="number" class="form-input" id="nb-chargesLoc" placeholder="0">
                 </div>
               </div>
               <div class="form-row mb-4">
                 <div class="form-group">
-                  <label class="form-label">PNO <em>€/m</em></label>
-                  <input type="number" class="form-input" id="nb-pno" placeholder="15">
+                  <label class="form-label">Taxe foncière <em>€/an</em></label>
+                  <input type="number" class="form-input" id="nb-tf" placeholder="324">
                 </div>
+                <div class="form-group">
+                  <label class="form-label">PNO <em>€/m</em></label>
+                  <input type="number" class="form-input" id="nb-pno" placeholder="10">
+                </div>
+              </div>
+              <div class="form-row mb-4">
+                <div class="form-group">
+                  <label class="form-label">Charges de copropriété <em>€/m</em></label>
+                  <input type="number" class="form-input" id="nb-copro" placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Frais de gestion agence <em>%</em></label>
+                  <input type="number" class="form-input" id="nb-gestionPct" placeholder="0" step="0.1">
+                </div>
+              </div>
+              <div class="divider-label">Fiscalité</div>
+              <div class="form-row mb-4">
                 <div class="form-group">
                   <label class="form-label">Régime fiscal</label>
                   <select class="form-input" id="nb-regimeFiscal">
-                    <option value="micro-foncier">Micro-foncier (30%)</option>
+                    <option value="micro-foncier">Micro-foncier (abattement 30%)</option>
                     <option value="reel-foncier">Réel foncier</option>
-                    <option value="micro-bic">Micro-BIC (50%)</option>
+                    <option value="micro-bic">Micro-BIC (abattement 50%)</option>
                     <option value="lmnp-reel">LMNP réel</option>
                   </select>
                 </div>
-              </div>
-              <div class="form-group mb-4">
-                <label class="form-label">TMI</label>
-                <select class="form-input" id="nb-tmi">
-                  <option value="0">0 %</option>
-                  <option value="11">11 %</option>
-                  <option value="30">30 %</option>
-                  <option value="41">41 %</option>
-                  <option value="45">45 %</option>
-                </select>
+                <div class="form-group">
+                  <label class="form-label">TMI <em>tranche marginale</em></label>
+                  <select class="form-input" id="nb-tmi">
+                    <option value="0">0 %</option>
+                    <option value="11">11 %</option>
+                    <option value="30">30 %</option>
+                    <option value="41">41 %</option>
+                    <option value="45">45 %</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -612,14 +656,89 @@ function rechercheGlobale(q) {
 }
 
 /* saveBien adapté pour le nouveau formulaire */
+/* ── CALCUL AUTOMATIQUE DE LA MENSUALITÉ ─────────────────── */
+// Formule standard d'un prêt amortissable :
+// mensualité = capital × (taux_mensuel) / (1 - (1+taux_mensuel)^-n)
+function calcMensualiteAuto() {
+  var achat    = nv(gid('nb-achat')        ? gid('nb-achat').value : 0);
+  var notaire  = nv(gid('nb-fraisNotaire') ? gid('nb-fraisNotaire').value : 0);
+  var agence   = nv(gid('nb-fraisAgence')  ? gid('nb-fraisAgence').value : 0);
+  var courtier = nv(gid('nb-fraisCourtier')? gid('nb-fraisCourtier').value : 0);
+  var travaux  = nv(gid('nb-travauxAchat') ? gid('nb-travauxAchat').value : 0);
+  var apport   = nv(gid('nb-apport')       ? gid('nb-apport').value : 0);
+  var taux     = nv(gid('nb-taux')         ? gid('nb-taux').value : 0);
+  var dureeAns = nv(gid('nb-duree')        ? gid('nb-duree').value : 0);
+  var assur    = nv(gid('nb-assur')        ? gid('nb-assur').value : 0);
+
+  // Capital emprunté = coût total − apport
+  var capital = achat + notaire + agence + courtier + travaux - apport;
+  if (capital < 0) capital = 0;
+
+  var mensCredit = 0;
+  if (capital > 0 && dureeAns > 0) {
+    var n = dureeAns * 12;
+    if (taux > 0) {
+      var tm = taux / 100 / 12;
+      mensCredit = capital * tm / (1 - Math.pow(1 + tm, -n));
+    } else {
+      mensCredit = capital / n; // taux 0%
+    }
+  }
+  var mensTotale = mensCredit + assur;
+
+  // Afficher dans l'encart
+  if (gid('calc-capital')) gid('calc-capital').textContent = capital > 0 ? fmtEuro(capital) : '—';
+  if (gid('calc-mens'))    gid('calc-mens').textContent    = mensTotale > 0 ? fmtEuro(mensTotale) + '/m' : '—';
+
+  // Alimenter les champs cachés
+  if (gid('nb-capitalInit')) gid('nb-capitalInit').value = Math.round(capital);
+  if (gid('nb-capitalDu'))   gid('nb-capitalDu').value   = Math.round(capital);
+  if (gid('nb-mens'))        gid('nb-mens').value         = mensCredit.toFixed(2);
+
+  // Calculer la date de fin de crédit
+  if (dureeAns > 0 && gid('nb-fincredit')) {
+    var d = new Date();
+    d.setFullYear(d.getFullYear() + Math.floor(dureeAns));
+    var mo = String(d.getMonth() + 1); if (mo.length < 2) mo = '0' + mo;
+    gid('nb-fincredit').value = d.getFullYear() + '-' + mo + '-01';
+  }
+}
+
+// Réinitialise complètement le formulaire d'ajout
+function resetAddForm() {
+  var ids = ['nb-nom','nb-adresse','nb-achat','nb-fraisNotaire','nb-fraisAgence',
+    'nb-fraisCourtier','nb-travauxAchat','nb-valeur','nb-date','nb-apport','nb-taux',
+    'nb-duree','nb-assur','nb-capitalInit','nb-capitalDu','nb-mens','nb-fincredit',
+    'nb-loyer','nb-chargesLoc','nb-tf','nb-pno','nb-copro','nb-gestionPct'];
+  for (var i = 0; i < ids.length; i++) {
+    var el = gid(ids[i]);
+    if (el) el.value = '';
+  }
+  if (gid('nb-type')) gid('nb-type').value = 'rp';
+  if (gid('nb-statut')) gid('nb-statut').value = 'actif';
+  if (gid('nb-regimeFiscal')) gid('nb-regimeFiscal').value = 'micro-foncier';
+  if (gid('nb-tmi')) gid('nb-tmi').value = '11';
+  if (gid('calc-capital')) gid('calc-capital').textContent = '—';
+  if (gid('calc-mens')) gid('calc-mens').textContent = '—';
+  if (gid('add-fb')) gid('add-fb').innerHTML = '';
+  if (typeof toggleLocFields === 'function') toggleLocFields();
+}
+
 function saveBien() {
   var nom = gid('nb-nom') ? gid('nb-nom').value.trim() : '';
   if (!nom) {
     setHTML('add-fb', '<div class="alert alert-danger">Entrez un nom pour ce bien.</div>');
     return;
   }
+  // S'assurer que le calcul est à jour
+  calcMensualiteAuto();
+
   var id = uid();
   var type = gid('nb-type') ? gid('nb-type').value : 'rp';
+  var fraisNotaire  = nv(gid('nb-fraisNotaire')  ? gid('nb-fraisNotaire').value : 0);
+  var fraisAgence   = nv(gid('nb-fraisAgence')   ? gid('nb-fraisAgence').value : 0);
+  var fraisCourtier = nv(gid('nb-fraisCourtier') ? gid('nb-fraisCourtier').value : 0);
+
   var b = normalizeBien({
     id: id,
     nom: nom,
@@ -627,9 +746,15 @@ function saveBien() {
     statut: gid('nb-statut') ? gid('nb-statut').value : 'actif',
     adresse: gid('nb-adresse') ? gid('nb-adresse').value.trim() : '',
     achat: nv(gid('nb-achat') ? gid('nb-achat').value : 0),
-    frais: nv(gid('nb-frais') ? gid('nb-frais').value : 0),
+    frais: fraisNotaire + fraisAgence + fraisCourtier,
+    fraisNotaire: fraisNotaire,
+    fraisAgence: fraisAgence,
+    fraisCourtier: fraisCourtier,
+    travauxAchat: nv(gid('nb-travauxAchat') ? gid('nb-travauxAchat').value : 0),
     valeur: nv(gid('nb-valeur') ? gid('nb-valeur').value : 0),
     date: gid('nb-date') ? gid('nb-date').value : '',
+    apport: nv(gid('nb-apport') ? gid('nb-apport').value : 0),
+    duree: nv(gid('nb-duree') ? gid('nb-duree').value : 0),
     capitalInit: nv(gid('nb-capitalInit') ? gid('nb-capitalInit').value : 0),
     capitalDu: nv(gid('nb-capitalDu') ? gid('nb-capitalDu').value : 0),
     mens: nv(gid('nb-mens') ? gid('nb-mens').value : 0),
@@ -637,8 +762,11 @@ function saveBien() {
     taux: nv(gid('nb-taux') ? gid('nb-taux').value : 0),
     finCredit: gid('nb-fincredit') ? gid('nb-fincredit').value : '',
     loyer: nv(gid('nb-loyer') ? gid('nb-loyer').value : 0),
+    chargesLoc: nv(gid('nb-chargesLoc') ? gid('nb-chargesLoc').value : 0),
     tf: nv(gid('nb-tf') ? gid('nb-tf').value : 0),
     pno: nv(gid('nb-pno') ? gid('nb-pno').value : 0),
+    copro: nv(gid('nb-copro') ? gid('nb-copro').value : 0),
+    gestionPct: nv(gid('nb-gestionPct') ? gid('nb-gestionPct').value : 0),
     regimeFiscal: gid('nb-regimeFiscal') ? gid('nb-regimeFiscal').value : 'micro-foncier',
     tmi: nv(gid('nb-tmi') ? gid('nb-tmi').value : 11),
   });
@@ -648,6 +776,7 @@ function saveBien() {
     type: b.type, statut: b.statut, total: S.biens.length
   });
   saveAll();
+  resetAddForm();
   navigateTo('bien', id);
 }
 

@@ -80,6 +80,7 @@ function renderPage(page, bienId) {
     case 'dashboard':  renderDashboard(); break;
     case 'biens':      renderBiens(); break;
     case 'bien':       renderFicheBien(bienId); break;
+    case 'add':        if (typeof resetAddForm === 'function') resetAddForm(); break;
     case 'locataires': renderLocataires(); break;
     case 'credits':    renderCredits(); break;
     case 'loyers':     renderLoyers2(); break;

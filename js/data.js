@@ -159,6 +159,12 @@ function normalizeBien(b) {
   if(b.gestionPct > 0) b.gest = nv(b.loyer) * b.gestionPct / 100;
   // --- v2.6b : profils associés (indivision / SCI) ---
   b.associesProfiles = b.associesProfiles || [];
+  // --- Détail des frais d'acquisition + financement projet ---
+  b.fraisNotaire  = b.fraisNotaire  !== undefined ? nv(b.fraisNotaire)  : 0;
+  b.fraisAgence   = b.fraisAgence   !== undefined ? nv(b.fraisAgence)   : 0;
+  b.fraisCourtier = b.fraisCourtier !== undefined ? nv(b.fraisCourtier) : 0;
+  b.apport        = b.apport        !== undefined ? nv(b.apport)        : 0;
+  b.duree         = b.duree         !== undefined ? nv(b.duree)         : 0;
   return b;
 }
 
