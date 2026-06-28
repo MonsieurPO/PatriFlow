@@ -32,17 +32,25 @@ function goPage(name, btn){
 }
 
 function addNavTab(b){
+  // Ancienne navigation v2.x : sur la nouvelle interface, #mainnav n'existe plus.
+  // On conserve la fonction pour compatibilité, mais elle ne doit jamais bloquer le chargement.
+  if(!b || !b.id) return;
   if(gid('btn-bien-' + b.id)) return;
   var nav = gid('mainnav');
+  if(!nav){
+    if(window.console && console.warn) console.warn('addNavTab ignoré : #mainnav introuvable dans cette version de l\'interface.');
+    return;
+  }
   var addBtn = gid('btn-add');
   var btn = document.createElement('button');
   btn.className = 'nb';
   btn.id = 'btn-bien-' + b.id;
-  var shortName = b.nom.length > 10 ? b.nom.slice(0,10) + '...' : b.nom;
+  var shortName = b.nom && b.nom.length > 10 ? b.nom.slice(0,10) + '...' : (b.nom || 'Bien');
   btn.textContent = shortName;
   btn.setAttribute('data-bid', b.id);
   btn.onclick = function(){ goPage('bien-' + b.id, btn); };
-  nav.insertBefore(btn, addBtn);
+  if(addBtn && addBtn.parentNode === nav) nav.insertBefore(btn, addBtn);
+  else nav.appendChild(btn);
 }
 
 // v2.3 : met à jour le libellé de l'onglet nav après renommage d'un bien
@@ -201,12 +209,6 @@ function calcImpotMensuel(b) {
       var amortissementAn = nv(b.achat) * 0.03;
       assiette = loyerAn - chargesReelles - interetsAn - assuranceAn - amortissementAn;
       break;
-    case 'sci-ir':
-      // SCI à l'IR (estimation simple) : comme le réel foncier — les associés
-      // sont imposés sur leur quote-part du résultat foncier. Ici, estimation
-      // au niveau du bien (loyers - charges - intérêts - assurance).
-      assiette = loyerAn - chargesReelles - interetsAn - assuranceAn;
-      break;
     default:
       assiette = loyerAn * 0.70;
   }
@@ -222,7 +224,7 @@ function calcCFApresImpot(b) {
 }
 
 function regimeLabel(r){
-  var m = {'micro-foncier':'Micro-foncier (abt. 30%)','reel-foncier':'R\u00e9el foncier','micro-bic':'LMNP micro-BIC (abt. 50%)','lmnp-reel':'LMNP r\u00e9el (amort.)','sci-ir':'SCI \u00e0 l\'IR (estimation)'};
+  var m = {'micro-foncier':'Micro-foncier (abt. 30%)','reel-foncier':'R\u00e9el foncier','micro-bic':'LMNP micro-BIC (abt. 50%)','lmnp-reel':'LMNP r\u00e9el (amort.)'};
   return m[r] || r;
 }
 
@@ -258,10 +260,6 @@ function calcImpotDetail(b){
       assietteAn = loyerAn - chargesReelles - interetsAn - assuranceAn - amortAn;
       abattementTxt = 'loyer annuel \u2212 charges \u2212 int\u00e9r\u00eats \u2212 assurance \u2212 amortissement (' + fmt(amortAn) + '/an)';
       break;
-    case 'sci-ir':
-      assietteAn = loyerAn - chargesReelles - interetsAn - assuranceAn;
-      abattementTxt = 'SCI \u00e0 l\'IR : loyer annuel \u2212 charges (' + fmt(chargesReelles) + ') \u2212 int\u00e9r\u00eats (' + fmt(interetsAn) + ') \u2212 assurance (' + fmt(assuranceAn) + ')';
-      break;
     default:
       assietteAn = loyerAn * 0.70;
       abattementTxt = 'loyer annuel \u00d7 70%';
@@ -280,48 +278,9 @@ function calcImpotDetail(b){
 }
 
 // ═══════════════════════════════════════════════════
-// v0.97 — RENDEMENTS (calculs purs, aucune dépendance UI)
-// Toutes ces fonctions sont des ESTIMATIONS indicatives.
-// ═══════════════════════════════════════════════════
-
-// Coût total d'acquisition (base des rendements)
-function coutAcquisition(b){
-  return nv(b.achat) + nv(b.frais) + nv(b.travauxAchat);
-}
-
-// Rendement BRUT = (loyer annuel / coût d'acquisition) × 100
-function rendementBrut(b){
-  var cout = coutAcquisition(b);
-  if(cout <= 0) return null;
-  return nv(b.loyer) * 12 / cout * 100;
-}
-
-// Charges annuelles propriétaire (hors crédit, hors impôt)
-function chargesProprioAn(b){
-  return nv(b.tf) + (nv(b.pno) + nv(b.copro) + nv(b.gest)) * 12;
-}
-
-// Rendement NET = ((loyer annuel − charges propriétaire) / coût) × 100
-function rendementNet(b){
-  var cout = coutAcquisition(b);
-  if(cout <= 0) return null;
-  var net = nv(b.loyer) * 12 - chargesProprioAn(b);
-  return net / cout * 100;
-}
-
-// Rendement NET-NET (après impôt estimatif) =
-// ((loyer annuel − charges − impôt estimatif annuel) / coût) × 100
-function rendementNetNet(b){
-  var cout = coutAcquisition(b);
-  if(cout <= 0) return null;
-  var impotAn = calcImpotMensuel(b) * 12;
-  var netnet = nv(b.loyer) * 12 - chargesProprioAn(b) - impotAn;
-  return netnet / cout * 100;
-}
-
-// ═══════════════════════════════════════════════════
 // AJOUTER BIEN (étendu — ordre identique à normalizeBien)
 // ═══════════════════════════════════════════════════
+// saveBien() — définie dans index.html
 function initLoyers(montant){
   var rows = [];
   var now = new Date();
@@ -930,8 +889,8 @@ function supprimerAnnee(bid, annee){
   if(nb === 0) return;
   if(!confirm('Supprimer les ' + nb + ' mois de l\'ann\u00e9e ' + annee + ' ?\nCette action est irr\u00e9versible.')) return;
   b.loyers = newLoyers;
-  renderLoyers(b);
   saveAll();
+  renderLoyers(b);
 }
 // ─────────────────────────────────────────────────────
 
@@ -974,86 +933,92 @@ function restoreOpenYears(bid, openSet, currentYear){
 function renderLoyers(b){
   var el = gid('lrows-' + b.id); if(!el) return;
 
-  // Mémoriser les blocs ouverts AVANT de reconstruire
-  var openBefore = getOpenYears(b.id);
+  // CSS injecté ici pour garantir que les années sont réellement pliables/dépliables,
+  // même si aucun fichier CSS externe ne contient encore ces règles.
+  if(!document.getElementById('pf-loyers-years-style')){
+    var st = document.createElement('style');
+    st.id = 'pf-loyers-years-style';
+    st.textContent = '.year-block .year-body{display:none}.year-block.open .year-body{display:block}.year-block .year-chev{display:inline-block;transition:transform 150ms ease}.year-block.open .year-chev{transform:rotate(0deg)}.year-block:not(.open) .year-chev{transform:rotate(-90deg)}';
+    document.head.appendChild(st);
+  }
 
-  // Grouper par année
+  var openBefore = getOpenYears(b.id);
+  var currentYear = String(new Date().getFullYear());
+
   var byYear = {};
   var years = [];
   for(var i=0; i<b.loyers.length; i++){
     var l = b.loyers[i];
-    var y = l.mois.split('-')[0];
+    if(!l.mois) continue;
+    var y = String(l.mois).split('-')[0];
     if(!byYear[y]){ byYear[y]=[]; years.push(y); }
     byYear[y].push({l:l, idx:i});
   }
-  years.sort(function(a,z){ return z < a ? -1 : 1; }); // années récentes en premier
+  years.sort(function(a,b){ return parseInt(b,10) - parseInt(a,10); });
 
-  var encTotalGlobal=0; var prevTotalGlobal=0; var nbGlobal=0;
-  var currentYear = String(new Date().getFullYear());
-
+  var encTotalGlobal=0, prevTotalGlobal=0, nbGlobal=0;
   var html='';
+
   for(var yi=0; yi<years.length; yi++){
     var y = years[yi];
-    var rows = byYear[y].slice().reverse(); // mois récents en premier dans l'année
+    var rows = byYear[y].slice().sort(function(a,b){ return String(b.l.mois).localeCompare(String(a.l.mois)); });
 
-    var encY=0; var prevY=0; var nbY=0;
-    for(var i=0; i<byYear[y].length; i++){
-      var l = byYear[y][i].l;
-      var enc = l.encaisse!==null ? nv(l.encaisse) : 0;
-      var prev = nv(l.prevu);
-      if(l.encaisse!==null){ encY+=enc; nbY++; encTotalGlobal+=enc; nbGlobal++; }
+    var encY=0, prevY=0, nbY=0;
+    for(var r=0; r<byYear[y].length; r++){
+      var ly = byYear[y][r].l;
+      var enc = ly.encaisse!==null ? nv(ly.encaisse) : 0;
+      var prev = nv(ly.prevu);
+      if(ly.encaisse!==null){ encY+=enc; nbY++; encTotalGlobal+=enc; nbGlobal++; }
       prevY+=prev; prevTotalGlobal+=prev;
     }
-    var occ = tauxOccupation(byYear[y]);
-    var occTxt = occ===null ? '\u2014' : fmtP(occ,0);
-    var occColor = occ===null ? 'var(--mist)' : occ>=95 ? 'var(--lime)' : occ>=80 ? 'var(--amber)' : 'var(--rose)';
+    var occ = tauxOccupation(byYear[y].map ? byYear[y].map(function(x){return x.l;}) : byYear[y]);
+    var occTxt = occ===null ? 'À vérifier' : fmtP(occ,0) + ' encaissé';
+    var occColor = occ===null ? 'var(--color-text-muted)' : occ>=95 ? 'var(--color-green)' : occ>=80 ? 'var(--color-amber)' : 'var(--color-red)';
 
-    // Pas de classe open ici — restoreOpenYears s'en charge après injection
     html += '<div class="year-block" id="yb-' + b.id + '-' + y + '">';
-    // year-hd divisé : clic gauche = toggle, bouton suppr à droite isolé
-    html += '<div class="year-hd" style="cursor:default">';
-    html += '<span class="year-title" onclick="this.closest(\'.year-block\').classList.toggle(\'open\')" style="cursor:pointer;flex:1">' + y + '</span>';
-    html += '<span class="year-stats" onclick="this.closest(\'.year-block\').classList.toggle(\'open\')" style="cursor:pointer">';
-    html += '<span style="color:' + occColor + '">' + occTxt + ' occ.</span>';
-    html += '<span class="sep-dot">\u00b7</span>';
-    html += '<span>' + fmt(encY) + ' / ' + fmt(prevY) + '</span>';
-    html += '<span class="year-chev">\u25be</span>';
-    html += '</span>';
-    html += '<button class="btn bdan bico" style="margin-left:8px;width:26px;height:26px;flex-shrink:0" onclick="event.stopPropagation();supprimerAnnee(\'' + b.id + '\',\'' + y + '\')" title="Supprimer l\'ann\u00e9e ' + y + '">&#128465;</button>';
-    html += '</div>';
+    html += '<div class="year-hd" onclick="this.closest(\'.year-block\').classList.toggle(\'open\')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px">';
+    html += '<div style="display:flex;align-items:center;gap:10px;min-width:0"><span class="year-chev">▾</span><strong>' + y + '</strong><span style="font-size:12px;color:' + occColor + '">' + occTxt + '</span></div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">';
+    html += '<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-secondary)">' + fmt(encY) + ' / ' + fmt(prevY) + '</span>';
+    html += '<button type="button" class="btn btn-danger btn-sm" onclick="event.stopPropagation();supprimerAnnee(\'' + b.id + '\',\'' + y + '\')" title="Supprimer l\'année ' + y + '">Supprimer</button>';
+    html += '</div></div>';
     html += '<div class="year-body">';
 
     for(var i=0; i<rows.length; i++){
-      var l = rows[i].l; var idx = rows[i].idx;
+      var l = rows[i].l, idx = rows[i].idx;
       var enc = l.encaisse !== null ? nv(l.encaisse) : 0;
       var prev = nv(l.prevu);
       var delta = l.encaisse !== null ? enc - prev : null;
-      var sc = l.statut === 'ok' ? 'lok' : l.statut === 'nok' ? 'lnok' : 'lnd';
-      var si = l.statut === 'ok' ? '\u2713' : l.statut === 'nok' ? '\u2717' : '\u00b7';
-      var dClass = delta === null ? '' : (delta >= 0 ? 'up' : 'dn');
-      var dTxt = delta === null ? '\u2014' : (delta >= 0 ? '+' : '') + Math.round(delta) + ' \u20ac';
+      var dClass = delta === null ? '' : (delta >= 0 ? 'text-green' : 'text-red');
+      var dTxt = delta === null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta) + ' €';
       var valStr = l.encaisse !== null ? l.encaisse : '';
-      html += '<div class="lrow">';
-      html += '<span class="lmois">' + moisLbl(l.mois) + '</span>';
-      html += '<div class="linput"><input type="number" value="' + valStr + '" placeholder="' + l.prevu + '" oninput="updLoyer(\'' + b.id + '\',' + idx + ',this.value)"></div>';
-      html += '<div class="lstatus ' + sc + '" onclick="cycleLoyer(\'' + b.id + '\',' + idx + ')">' + si + '</div>';
-      html += '<div class="ldelta ' + dClass + '">' + dTxt + '</div>';
+      var dPay = l.datePaiement || '';
+      var badge = l.statut === 'ok' ? '<span class="badge badge-actif">Payé</span>' : (l.statut === 'nok' ? '<span class="badge badge-annule">Non payé</span>' : '<span class="badge badge-vendu">À vérifier</span>');
+
+      html += '<div class="loyer-row" style="display:grid;grid-template-columns:minmax(110px,1fr) minmax(150px,170px) minmax(160px,190px) minmax(250px,1fr) 70px;gap:10px;align-items:end;padding:12px 0;border-bottom:1px solid var(--color-border)">';
+      html += '<div><div style="font-weight:700">' + moisLbl(l.mois) + '</div><div style="margin-top:4px">' + badge + '</div></div>';
+      html += '<div class="form-group"><label class="form-label">Montant encaissé</label><input class="form-input" type="number" value="' + valStr + '" placeholder="' + l.prevu + '" onchange="updLoyer(\'' + b.id + '\',' + idx + ',this.value)"></div>';
+      html += '<div class="form-group"><label class="form-label">Date paiement</label><input type="date" class="form-input" value="' + dPay + '" onchange="updLoyerDate(\'' + b.id + '\',' + idx + ',this.value)"></div>';
+      html += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:1px">';
+      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'ok' ? 'btn-success' : 'btn-secondary') + '" onclick="event.stopPropagation();setLoyerStatut(\'' + b.id + '\',' + idx + ',\'ok\')">Payé</button>';
+      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'nok' ? 'btn-danger' : 'btn-secondary') + '" onclick="event.stopPropagation();setLoyerStatut(\'' + b.id + '\',' + idx + ',\'nok\')">Non payé</button>';
+      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'nd' ? 'btn-primary' : 'btn-ghost') + '" onclick="event.stopPropagation();setLoyerStatut(\'' + b.id + '\',' + idx + ',\'nd\')">À vérifier</button>';
+      html += '</div>';
+      html += '<div class="font-mono ' + dClass + '" style="text-align:right;padding-bottom:8px">' + dTxt + '</div>';
       html += '</div>';
     }
     html += '</div></div>';
   }
 
   if(!years.length){
-    html = '<div class="empty" style="padding:16px">Aucun mois enregistr\u00e9. Cliquez sur "+ Mois".</div>';
+    html = '<div class="empty-state" style="padding:24px"><div class="empty-title">Aucun mois enregistré</div><div class="empty-desc">Cliquez sur + Mois pour démarrer le suivi.</div></div>';
   }
 
   el.innerHTML = html;
-
-  // Restaurer l'état ouvert/fermé après injection
   restoreOpenYears(b.id, openBefore, currentYear);
 
   var recap = gid('lrecap-' + b.id);
-  if(recap) recap.textContent = nbGlobal + ' mois \u00b7 Encaiss\u00e9 : ' + fmt(encTotalGlobal) + ' \u00b7 Pr\u00e9vu : ' + fmt(prevTotalGlobal);
+  if(recap) recap.textContent = nbGlobal + ' mois · Encaissé : ' + fmt(encTotalGlobal) + ' · Prévu : ' + fmt(prevTotalGlobal);
 }
 
 function updLoyer(bid, idx, val){
@@ -1077,6 +1042,38 @@ function updLoyer(bid, idx, val){
   }
   var recap = gid('lrecap-' + bid);
   if(recap) recap.textContent = nbTotal + ' mois \u00b7 Encaiss\u00e9 : ' + fmt(encTotal) + ' \u00b7 Pr\u00e9vu : ' + fmt(prevTotal);
+}
+
+function setLoyerStatut(bid, idx, statut){
+  var b = getBien(bid);
+  if(!b || !b.loyers || !b.loyers[idx]) return;
+  var l = b.loyers[idx];
+  l.statut = statut;
+  if(statut === 'ok'){
+    if(l.encaisse === null || nv(l.encaisse) === 0) l.encaisse = nv(l.prevu);
+    if(!l.datePaiement){
+      var d = new Date();
+      var m = String(d.getMonth()+1); if(m.length<2) m='0'+m;
+      var day = String(d.getDate()); if(day.length<2) day='0'+day;
+      l.datePaiement = d.getFullYear() + '-' + m + '-' + day;
+    }
+  } else if(statut === 'nok'){
+    l.encaisse = 0;
+    l.datePaiement = '';
+  } else {
+    l.statut = 'nd';
+    l.encaisse = null;
+    l.datePaiement = '';
+  }
+  renderLoyers(b);
+  saveAll();
+}
+
+function updLoyerDate(bid, idx, val){
+  var b = getBien(bid);
+  if(!b || !b.loyers || !b.loyers[idx]) return;
+  b.loyers[idx].datePaiement = val || '';
+  saveAll();
 }
 
 function cycleLoyer(bid, idx){
@@ -2282,14 +2279,20 @@ function saveAll(){
 function loadAll(){
   try{
     var data = STORE.load(STORE_KEY);
-    if(!data || !data.biens) return;
-
-    // Étape 1 : vérification version
-    if(data._v && data._v > DATA_VERSION){
-      alert('Attention : les donn\u00e9es sauvegard\u00e9es sont plus r\u00e9centes que cette version de l\'application (v'+data._v+' > v'+DATA_VERSION+'). Veuillez utiliser la derni\u00e8re version du fichier HTML.');
+    if(!data || !data.biens || !Array.isArray(data.biens)) {
+      return false;
     }
 
-    // Étape 3 : charger S.config si présent
+    if(data._v && data._v > DATA_VERSION){
+      alert('Attention : les données sauvegardées sont plus récentes que cette version de l\'application (v'+data._v+' > v'+DATA_VERSION+'). Veuillez utiliser la dernière version du fichier HTML.');
+    }
+
+    // IMPORTANT : nouvelle interface PatriFlow
+    // On recharge uniquement l'état S.
+    // On ne reconstruit plus les anciennes pages dynamiques (#mainnav / #bien-pages),
+    // car ces éléments n'existent plus dans l'interface actuelle et interrompaient le chargement.
+    S.biens = [];
+
     if(data.config){
       S.config.revenusMensuels    = nv(data.config.revenusMensuels);
       S.config.tauxEndettementMax = nv(data.config.tauxEndettementMax) || 35;
@@ -2298,24 +2301,28 @@ function loadAll(){
       S.config.tauxNotaireDefaut  = nv(data.config.tauxNotaireDefaut)  || 8;
       S.config.fraisDossierDefaut = nv(data.config.fraisDossierDefaut) || 1500;
     }
-    // v2.8 : charger l'historique patrimoine (rétrocompat : vide si absent)
+
     S.historiquePatrimoine = data.historiquePatrimoine || [];
 
-    // Étape 1 : normalizeBien sur chaque bien au chargement
     for(var i=0; i<data.biens.length; i++){
-      var b = normalizeBien(data.biens[i]);  // filet de sécurité
-      // ÉTAPE 4 (v4) : génération auto des mois manquants de l'année en cours
+      var b = normalizeBien(data.biens[i]);
       autoGenererMoisAnnee(b);
       S.biens.push(b);
-      addNavTab(b);
-      buildBienPage(b);
-      if(b.type === 'loc') renderLoyers(b);
-      renderTravaux(b);
     }
 
     loadConfig();
-    refreshDash();
-  } catch(e) { /* load error */ }
+
+    // Rafraîchissement compatible nouvelle interface
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderBiens === 'function' && typeof CURRENT_PAGE !== 'undefined' && CURRENT_PAGE === 'biens') renderBiens();
+    if (typeof renderDashBiensApercu === 'function') renderDashBiensApercu();
+    if (typeof renderSidebarAlertes === 'function') renderSidebarAlertes();
+
+    return true;
+  } catch(e) {
+    console.error('loadAll erreur :', e);
+    return false;
+  }
 }
 
 function exportData(){
@@ -2405,21 +2412,24 @@ function importData(event){
     S.historiquePatrimoine = data.historiquePatrimoine || [];
 
     // normalizeBien sur chaque bien importé (migration de schema)
+    // IMPORTANT : nouvelle interface PatriFlow
+    // Ne plus appeler addNavTab/buildBienPage/renderLoyers/renderTravaux ici :
+    // ces fonctions appartiennent à l'ancienne interface et peuvent interrompre l'import.
     for(var i=0; i<data.biens.length; i++){
       var b = normalizeBien(data.biens[i]);
       autoGenererMoisAnnee(b);
       S.biens.push(b);
-      addNavTab(b);
-      buildBienPage(b);
-      if(b.type === 'loc') renderLoyers(b);
-      renderTravaux(b);
     }
 
     loadConfig();
-    refreshDash();
     saveAll();
 
-    alert('Import r\u00e9ussi : '+nbNouveaux+' bien(s) charg\u00e9(s).');
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderBiens === 'function') renderBiens();
+    if (typeof renderDashBiensApercu === 'function') renderDashBiensApercu();
+    if (typeof renderSidebarAlertes === 'function') renderSidebarAlertes();
+
+    alert('Import réussi : '+nbNouveaux+' bien(s) chargé(s).');
     event.target.value = '';
   };
   reader.onerror = function(){
@@ -2743,3 +2753,223 @@ function loadExemple(){
 // ═══════════════════════════════════════════════════
 // INIT — chargement automatique des données
 // ═══════════════════════════════════════════════════
+// Exposition explicite pour les boutons HTML inline
+window.setLoyerStatut = setLoyerStatut;
+window.updLoyer = updLoyer;
+window.updLoyerDate = updLoyerDate;
+
+
+/* ═══════════════════════════════════════════════════════════
+   PAT RIFLOW — MOTEUR FISCAL ANNUEL V1
+   Objectif : calculs transparents, non destructifs, compatibles avec les fonctions existantes.
+   Important : le module calcule strictement à partir des données saisies. Quand une règle
+   nécessite une qualification comptable (travaux déductibles, amortissement LMNP réel),
+   l'application affiche une alerte au lieu d'inventer un montant fiscal.
+   ═══════════════════════════════════════════════════════════ */
+
+function pfFiscalYearNow(){ return new Date().getFullYear(); }
+function pfNum(v){ return typeof nv === 'function' ? nv(v) : (parseFloat(v)||0); }
+function pfFmt(v){ return typeof fmt === 'function' ? fmt(v) : Math.round(pfNum(v)).toLocaleString('fr-FR')+' €'; }
+function pfFmtEuro(v){ return typeof fmtEuro === 'function' ? fmtEuro(v) : pfFmt(v); }
+function pfFmtPct(v){ return typeof fmtP === 'function' ? fmtP(v) : (Math.round(v*10)/10).toString().replace('.', ',')+' %'; }
+function pfDateYear(s){ if(!s) return null; var y=parseInt(String(s).slice(0,4),10); return isNaN(y)?null:y; }
+function pfActiveLoc(b){ return b && b.type === 'loc' && b.statut !== 'vendu' && b.statut !== 'annule'; }
+
+function loyersEncaissesAnnee(b, annee){
+  var total = 0, nb = 0, prevu = 0, nbPrevu = 0;
+  if(b && b.loyers && b.loyers.length){
+    for(var i=0;i<b.loyers.length;i++){
+      var l=b.loyers[i];
+      if(!l || !l.mois) continue;
+      if(String(l.mois).slice(0,4) !== String(annee)) continue;
+      prevu += pfNum(l.prevu); nbPrevu++;
+      if(l.encaisse !== null && l.encaisse !== undefined && l.encaisse !== ''){
+        total += pfNum(l.encaisse); nb++;
+      }
+    }
+  }
+  return { encaisses: total, nbEncaisses: nb, prevu: prevu || pfNum(b && b.loyer)*12, nbPrevu: nbPrevu };
+}
+
+function travauxEnregistresAnnee(b, annee){
+  var total = 0, deductibles = 0, nonQualifies = 0;
+  if(!b || !b.travaux) return {total:0,deductibles:0,nonQualifies:0};
+  for(var i=0;i<b.travaux.length;i++){
+    var t=b.travaux[i];
+    if(!t) continue;
+    var y = pfDateYear(t.date);
+    if(y !== parseInt(annee,10)) continue;
+    var amt = pfNum(t.amt);
+    total += amt;
+    if(t.deductible === true || t.fiscalDeductible === true || t.deductibleFiscal === true) deductibles += amt;
+    else nonQualifies += amt;
+  }
+  return {total:total,deductibles:deductibles,nonQualifies:nonQualifies};
+}
+
+function interetsCreditAnnee(b, annee){
+  // Priorité : tableau d'amortissement calculé mois par mois si date + fin crédit disponibles.
+  var amort = typeof calcAmortissement === 'function' ? calcAmortissement(b) : null;
+  if(amort && b && b.date){
+    var p = String(b.date).split('-');
+    var y0 = parseInt(p[0],10);
+    var m0 = parseInt(p[1] || '1',10);
+    if(!isNaN(y0) && !isNaN(m0)){
+      var total = 0;
+      for(var i=0;i<amort.tableau.length;i++){
+        var d = new Date(y0, (m0-1)+i, 1);
+        if(d.getFullYear() === parseInt(annee,10)) total += pfNum(amort.tableau[i].interet);
+      }
+      return { montant: total, exact: true, methode: 'tableau_amortissement' };
+    }
+  }
+  // Fallback conservateur : approximation signalée, pas un chiffre de déclaration exact.
+  return { montant: pfNum(b && b.capitalDu) * (pfNum(b && b.taux)/100), exact: false, methode: 'approx_capital_du_x_taux' };
+}
+
+function calcFiscalDetailPro(b, annee, options){
+  options = options || {};
+  annee = parseInt(annee || pfFiscalYearNow(),10);
+  var loy = loyersEncaissesAnnee(b, annee);
+  var loyersDeclares = loy.encaisses;
+  var utiliseTheorique = false;
+  if(options.projection === true && loyersDeclares <= 0){
+    loyersDeclares = pfNum(b.loyer) * 12;
+    utiliseTheorique = true;
+  }
+  var interets = interetsCreditAnnee(b, annee);
+  var travaux = travauxEnregistresAnnee(b, annee);
+  var taxeFonciere = pfNum(b.tf);
+  var pno = pfNum(b.pno) * 12;
+  var copro = pfNum(b.copro) * 12;
+  var gestion = pfNum(b.gest) * 12;
+  var assuranceEmprunteur = pfNum(b.assur) * 12;
+  var chargesDeductibles = taxeFonciere + pno + copro + gestion + assuranceEmprunteur + interets.montant + travaux.deductibles;
+  var regime = b.regimeFiscal || 'micro-foncier';
+  var tmi = pfNum(b.tmi);
+  var ps = PRELEV_SOCIAUX;
+  var base = 0, basePositive = 0, deficit = 0, ir = 0, prelevSoc = 0, impotTotal = 0;
+  var avertissements = [];
+  var declarationReady = true;
+  var formule = '';
+
+  if(utiliseTheorique){ avertissements.push('Projection : aucun loyer encaissé trouvé sur '+annee+', calcul basé sur le loyer théorique.'); declarationReady = false; }
+  if(!interets.exact && interets.montant > 0){ avertissements.push('Intérêts d’emprunt approximés : renseigner date d’achat, fin de crédit, taux et mensualité pour fiabiliser.'); declarationReady = false; }
+  if(travaux.nonQualifies > 0){ avertissements.push('Travaux enregistrés non intégrés fiscalement : à qualifier comme déductibles ou non avant déclaration.'); declarationReady = false; }
+
+  if(regime === 'micro-foncier'){
+    base = loyersDeclares * 0.70;
+    formule = 'Loyers encaissés × 70 % (abattement forfaitaire 30 %)';
+    if(loyersDeclares > 15000){ avertissements.push('Micro-foncier potentiellement non applicable : loyers fonciers annuels > 15 000 €.'); declarationReady = false; }
+  } else if(regime === 'reel-foncier'){
+    base = loyersDeclares - chargesDeductibles;
+    formule = 'Loyers encaissés − charges déductibles − intérêts − assurance emprunteur';
+    if(base < 0) deficit = Math.abs(base);
+  } else if(regime === 'micro-bic'){
+    base = loyersDeclares * 0.50;
+    formule = 'Recettes meublées × 50 % (hypothèse meublé longue durée non touristique)';
+    avertissements.push('Micro-BIC : vérifier le type exact de location meublée et les seuils applicables.');
+    declarationReady = false;
+  } else if(regime === 'lmnp-reel'){
+    // Maintien d'une estimation, mais jamais marquée comme déclaration-ready car l'amortissement exige une comptabilité.
+    var amortissementIndicatif = pfNum(b.achat) * 0.03;
+    base = loyersDeclares - chargesDeductibles - amortissementIndicatif;
+    formule = 'Recettes − charges − intérêts − amortissement indicatif 3 %';
+    avertissements.push('LMNP réel : amortissement comptable indicatif. Calcul à valider avec comptable avant déclaration.');
+    declarationReady = false;
+  } else {
+    base = loyersDeclares * 0.70;
+    formule = 'Régime inconnu : fallback micro-foncier';
+    avertissements.push('Régime fiscal non reconnu.'); declarationReady = false;
+  }
+
+  basePositive = Math.max(0, base);
+  ir = basePositive * tmi / 100;
+  prelevSoc = basePositive * ps / 100;
+  impotTotal = ir + prelevSoc;
+
+  return {
+    annee: annee,
+    bienId: b.id,
+    nom: b.nom,
+    regime: regime,
+    regimeLabel: typeof regimeLabel === 'function' ? regimeLabel(regime) : regime,
+    tmi: tmi,
+    prelevementsSociaux: ps,
+    loyersEncaisses: loy.encaisses,
+    loyersTheoriques: pfNum(b.loyer) * 12,
+    loyersUtilises: loyersDeclares,
+    nbMoisEncaisses: loy.nbEncaisses,
+    taxeFonciere: taxeFonciere,
+    pno: pno,
+    copro: copro,
+    gestion: gestion,
+    assuranceEmprunteur: assuranceEmprunteur,
+    interets: interets.montant,
+    interetsExact: interets.exact,
+    travauxTotal: travaux.total,
+    travauxDeductibles: travaux.deductibles,
+    travauxNonQualifies: travaux.nonQualifies,
+    chargesDeductibles: chargesDeductibles,
+    baseImposable: basePositive,
+    resultatFiscalAvantPlancher: base,
+    deficit: deficit,
+    ir: ir,
+    ps: prelevSoc,
+    impotTotal: impotTotal,
+    impotMensuel: impotTotal / 12,
+    cashflowAvantImpot: typeof calcCF === 'function' ? calcCF(b) * 12 : 0,
+    cashflowApresImpot: (typeof calcCF === 'function' ? calcCF(b) * 12 : 0) - impotTotal,
+    formule: formule,
+    avertissements: avertissements,
+    declarationReady: declarationReady
+  };
+}
+
+function calcFiscalParcPro(annee, options){
+  annee = parseInt(annee || pfFiscalYearNow(),10);
+  options = options || {};
+  var rows = [], total = {
+    loyersEncaisses:0, loyersTheoriques:0, loyersUtilises:0, chargesDeductibles:0,
+    taxeFonciere:0, pno:0, copro:0, gestion:0, assuranceEmprunteur:0, interets:0,
+    travauxTotal:0, travauxDeductibles:0, travauxNonQualifies:0,
+    baseImposable:0, deficit:0, ir:0, ps:0, impotTotal:0, cashflowAvantImpot:0, cashflowApresImpot:0
+  };
+  if(!S || !S.biens) return {annee:annee, rows:rows, total:total, avertissements:['Aucune donnée chargée.'], declarationReady:false};
+  for(var i=0;i<S.biens.length;i++){
+    var b=S.biens[i];
+    if(!pfActiveLoc(b)) continue;
+    var d = calcFiscalDetailPro(b, annee, options);
+    rows.push(d);
+    for(var k in total){ if(total.hasOwnProperty(k)) total[k] += pfNum(d[k]); }
+  }
+  var warnings=[]; var ready=true;
+  for(var r=0;r<rows.length;r++){
+    if(!rows[r].declarationReady) ready=false;
+    for(var w=0;w<rows[r].avertissements.length;w++) warnings.push(rows[r].nom+' : '+rows[r].avertissements[w]);
+  }
+  return {annee:annee, rows:rows, total:total, avertissements:warnings, declarationReady:ready};
+}
+
+// Compatibilité : les anciens écrans qui appellent calcImpotMensuel/calcImpotDetail utilisent maintenant le moteur central.
+function calcImpotMensuel(b) {
+  var d = calcFiscalDetailPro(b, pfFiscalYearNow(), {projection:true});
+  return d.impotMensuel || 0;
+}
+function calcImpotDetail(b){
+  var d = calcFiscalDetailPro(b, pfFiscalYearNow(), {projection:true});
+  return {
+    loyerAn: d.loyersUtilises,
+    assietteAn: d.baseImposable,
+    abattementTxt: d.formule,
+    tauxGlobal: d.tmi + d.prelevementsSociaux,
+    tmi: d.tmi,
+    impotAn: d.impotTotal,
+    impotMens: d.impotMensuel,
+    ir: d.ir,
+    ps: d.ps,
+    chargesDeductibles: d.chargesDeductibles,
+    avertissements: d.avertissements,
+    declarationReady: d.declarationReady
+  };
+}
