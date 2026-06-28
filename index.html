@@ -122,14 +122,14 @@
 
       <!-- Actions -->
       <div class="header-actions">
-        <button class="header-icon-btn" onclick="exportData()" data-tooltip="Backup JSON">📦</button>
-        <button class="header-icon-btn" onclick="gid('import-file-header').click()" data-tooltip="Importer">📂</button>
+        <button class="header-icon-btn" onclick="exportData()" title="Sauvegarder en fichier (backup JSON)">📦</button>
+        <button class="header-icon-btn" onclick="gid('import-file-header').click()" title="Importer un fichier de sauvegarde">📂</button>
         <input type="file" id="import-file-header" accept=".json" style="display:none" onchange="importData(event)">
-        <button class="header-icon-btn" onclick="saveAll()" data-tooltip="Sauvegarder">💾</button>
-        <button class="header-icon-btn" onclick="ouvrirModalAuth()" data-tooltip="Synchronisation cloud">
+        <button class="header-icon-btn" onclick="saveAll()" title="Enregistrer les données">💾</button>
+        <button class="header-icon-btn" onclick="ouvrirModalAuth()" title="Synchronisation cloud (Supabase)">
           ☁ <span id="header-auth-dot" class="status-dot" style="position:absolute;top:6px;right:6px"></span>
         </button>
-        <div class="header-avatar" onclick="navigateTo('parametres')" id="header-avatar">M</div>
+        <div class="header-avatar" onclick="navigateTo('parametres')" id="header-avatar" title="Mon compte et paramètres" style="cursor:pointer">M</div>
       </div>
     </header>
 
@@ -197,7 +197,9 @@
             <div class="page-subtitle" id="biens-subtitle"></div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" onclick="gid('import-biens-csv').click()" title="Importer des biens depuis un fichier CSV/Excel">📥 Importer</button>
             <button class="btn btn-primary" onclick="navigateTo('add')">+ Ajouter un bien</button>
+            <input type="file" id="import-biens-csv" accept=".csv,.txt" style="display:none" onchange="importerBiensCSV(event)">
           </div>
         </div>
         <div id="page-biens-content"><!-- rempli par renderBiens() --></div>
@@ -649,6 +651,93 @@ function saveBien() {
   navigateTo('bien', id);
 }
 
+/* ── IMPORT BIENS CSV/EXCEL ──────────────────────────────── */
+// Lit un fichier CSV (export Excel) et crée les biens correspondants.
+// Le CSV doit contenir la ligne d'en-têtes techniques (nom, type, achat...).
+function importerBiensCSV(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var texte = e.target.result;
+      var resultat = parserCSVBiens(texte);
+      if (resultat.erreur) { alert('Import impossible : ' + resultat.erreur); return; }
+      if (!resultat.biens.length) { alert('Aucun bien valide trouvé dans le fichier.'); return; }
+
+      var msg = resultat.biens.length + ' bien(s) trouvé(s) :\n\n';
+      for (var i = 0; i < resultat.biens.length; i++) {
+        msg += '• ' + resultat.biens[i].nom + '\n';
+      }
+      msg += '\nVoulez-vous les ajouter à votre parc ?';
+      if (!confirm(msg)) return;
+
+      for (var j = 0; j < resultat.biens.length; j++) {
+        var b = normalizeBien(resultat.biens[j]);
+        autoGenererMoisAnnee(b);
+        S.biens.push(b);
+      }
+      saveAll();
+      if (typeof Analytics !== 'undefined') Analytics.track('biens.imported', { count: resultat.biens.length });
+      alert(resultat.biens.length + ' bien(s) importé(s) avec succès !');
+      navigateTo('biens');
+    } catch (err) {
+      alert('Erreur lors de la lecture du fichier. Vérifiez le format CSV.');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = ''; // permet de réimporter le même fichier
+}
+
+// Parse le texte CSV en tableau de biens.
+function parserCSVBiens(texte) {
+  // Détecter le séparateur (Excel FR utilise ; , Excel US utilise ,)
+  var lignes = texte.split(/\r\n|\r|\n/);
+  if (lignes.length < 2) return { erreur: 'Fichier vide ou incomplet.', biens: [] };
+
+  var sep = (lignes[0].split(';').length > lignes[0].split(',').length) ? ';' : ',';
+
+  // Trouver la ligne d'en-têtes techniques (contient 'nom' et 'type')
+  var headerRow = -1;
+  for (var i = 0; i < Math.min(lignes.length, 3); i++) {
+    var cells = lignes[i].toLowerCase().split(sep);
+    if (cells.indexOf('nom') !== -1 && cells.indexOf('type') !== -1) {
+      headerRow = i; break;
+    }
+  }
+  if (headerRow === -1) {
+    return { erreur: "En-têtes introuvables. Gardez la ligne technique (nom, type, achat...) du modèle.", biens: [] };
+  }
+
+  var entetes = lignes[headerRow].split(sep);
+  for (var h = 0; h < entetes.length; h++) entetes[h] = entetes[h].trim();
+
+  var champsNum = ['achat','frais','travauxAchat','valeur','capitalInit','capitalDu','mens','assur','taux','loyer','tf','pno'];
+  var biens = [];
+
+  for (var r = headerRow + 1; r < lignes.length; r++) {
+    if (!lignes[r].trim()) continue;
+    var vals = lignes[r].split(sep);
+    var bien = {};
+    for (var c = 0; c < entetes.length; c++) {
+      var cle = entetes[c];
+      var val = vals[c] ? vals[c].trim().replace(/^"|"$/g, '') : '';
+      if (!cle) continue;
+      if (champsNum.indexOf(cle) !== -1) {
+        bien[cle] = nv(val.replace(/\s/g, '').replace(',', '.'));
+      } else {
+        bien[cle] = val;
+      }
+    }
+    // Valider : nom + type obligatoires
+    if (bien.nom && bien.type) {
+      if (bien.type !== 'rp' && bien.type !== 'loc') bien.type = 'loc';
+      biens.push(bien);
+    }
+  }
+  return { erreur: null, biens: biens };
+}
+
 /* deleteBien */
 function deleteBien(bid) {
   if (!confirm('Supprimer ce bien définitivement ?\n\nToutes les données (loyers, travaux, documents) seront perdues.')) return;
@@ -661,17 +750,14 @@ function deleteBien(bid) {
 }
 
 /* Helpers conservés de la v2.9 */
-// Rafraîchit instantanément la fiche bien (cartouches + onglet courant)
-// après toute modification, sans recharger la page.
+// Rafraîchit uniquement les cartouches du haut (valeur, equity, mensualité...)
+// SANS re-render le formulaire en cours d'édition (sinon perte de focus).
 function rafraichirFiche(id) {
   if (typeof CURRENT_BIEN_ID === 'undefined' || CURRENT_BIEN_ID !== id) return;
   var b = getBien(id);
   if (!b) return;
   if (typeof renderFicheHeader === 'function') {
     setHTML('fiche-bien-header', renderFicheHeader(b));
-  }
-  if (typeof switchFicheTab === 'function' && typeof FICHE_TAB !== 'undefined') {
-    switchFicheTab(FICHE_TAB, b);
   }
 }
 
