@@ -290,8 +290,8 @@
               <div class="form-group">
                 <label class="form-label">Type de bien</label>
                 <select class="form-input" id="nb-type" onchange="toggleLocFields()">
+                  <option value="loc" selected>Locatif</option>
                   <option value="rp">Résidence principale</option>
-                  <option value="loc">Locatif</option>
                 </select>
               </div>
               <div class="form-group">
@@ -390,7 +390,7 @@
             <input type="hidden" id="nb-mens">
             <input type="hidden" id="nb-fincredit">
 
-            <div id="loc-fields" style="display:none">
+            <div id="loc-fields" style="display:block">
               <div class="divider-label">Revenus & charges locatives</div>
               <div class="form-row mb-4">
                 <div class="form-group">
@@ -714,7 +714,7 @@ function resetAddForm() {
     var el = gid(ids[i]);
     if (el) el.value = '';
   }
-  if (gid('nb-type')) gid('nb-type').value = 'rp';
+  if (gid('nb-type')) gid('nb-type').value = 'loc';
   if (gid('nb-statut')) gid('nb-statut').value = 'actif';
   if (gid('nb-regimeFiscal')) gid('nb-regimeFiscal').value = 'micro-foncier';
   if (gid('nb-tmi')) gid('nb-tmi').value = '11';
@@ -734,7 +734,17 @@ function saveBien() {
   calcMensualiteAuto();
 
   var id = uid();
-  var type = gid('nb-type') ? gid('nb-type').value : 'rp';
+  var type = gid('nb-type') ? gid('nb-type').value : 'loc';
+
+  // Sécurité : si des champs locatifs sont renseignés, le bien doit être considéré comme locatif.
+  // Cela évite le cas où l'onglet "Revenus & Charges" disparaît après une création manuelle.
+  var hasLocData = nv(gid('nb-loyer') ? gid('nb-loyer').value : 0) > 0 ||
+                   nv(gid('nb-tf') ? gid('nb-tf').value : 0) > 0 ||
+                   nv(gid('nb-pno') ? gid('nb-pno').value : 0) > 0 ||
+                   nv(gid('nb-copro') ? gid('nb-copro').value : 0) > 0 ||
+                   nv(gid('nb-gestionPct') ? gid('nb-gestionPct').value : 0) > 0;
+  if (hasLocData) type = 'loc';
+
   var fraisNotaire  = nv(gid('nb-fraisNotaire')  ? gid('nb-fraisNotaire').value : 0);
   var fraisAgence   = nv(gid('nb-fraisAgence')   ? gid('nb-fraisAgence').value : 0);
   var fraisCourtier = nv(gid('nb-fraisCourtier') ? gid('nb-fraisCourtier').value : 0);

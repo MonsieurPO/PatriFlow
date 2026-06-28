@@ -881,8 +881,8 @@ function supprimerAnnee(bid, annee){
   if(nb === 0) return;
   if(!confirm('Supprimer les ' + nb + ' mois de l\'ann\u00e9e ' + annee + ' ?\nCette action est irr\u00e9versible.')) return;
   b.loyers = newLoyers;
-  renderLoyers(b);
   saveAll();
+  renderLoyers(b);
 }
 // ─────────────────────────────────────────────────────
 
@@ -925,86 +925,76 @@ function restoreOpenYears(bid, openSet, currentYear){
 function renderLoyers(b){
   var el = gid('lrows-' + b.id); if(!el) return;
 
-  // Mémoriser les blocs ouverts AVANT de reconstruire
   var openBefore = getOpenYears(b.id);
+  var currentYear = String(new Date().getFullYear());
 
-  // Grouper par année
   var byYear = {};
   var years = [];
   for(var i=0; i<b.loyers.length; i++){
     var l = b.loyers[i];
-    var y = String(l.mois || '').split('-')[0];
-    if(!y) continue;
+    if(!l.mois) continue;
+    var y = String(l.mois).split('-')[0];
     if(!byYear[y]){ byYear[y]=[]; years.push(y); }
     byYear[y].push({l:l, idx:i});
   }
-  years.sort(function(a,z){ return z < a ? -1 : 1; }); // années récentes en premier
+  years.sort(function(a,b){ return parseInt(b,10) - parseInt(a,10); });
 
-  var encTotalGlobal=0; var prevTotalGlobal=0; var nbGlobal=0;
-  var currentYear = String(new Date().getFullYear());
-
+  var encTotalGlobal=0, prevTotalGlobal=0, nbGlobal=0;
   var html='';
+
   for(var yi=0; yi<years.length; yi++){
     var y = years[yi];
-    var rows = byYear[y].slice().reverse(); // mois récents en premier
+    var rows = byYear[y].slice().sort(function(a,b){ return String(b.l.mois).localeCompare(String(a.l.mois)); });
 
-    var encY=0; var prevY=0; var nbY=0;
-    for(var j=0; j<byYear[y].length; j++){
-      var ly = byYear[y][j].l;
+    var encY=0, prevY=0, nbY=0;
+    for(var r=0; r<byYear[y].length; r++){
+      var ly = byYear[y][r].l;
       var enc = ly.encaisse!==null ? nv(ly.encaisse) : 0;
       var prev = nv(ly.prevu);
       if(ly.encaisse!==null){ encY+=enc; nbY++; encTotalGlobal+=enc; nbGlobal++; }
       prevY+=prev; prevTotalGlobal+=prev;
     }
-    var occ = tauxOccupation(byYear[y]);
-    var occTxt = occ===null ? '—' : fmtP(occ,0);
+    var occ = tauxOccupation(byYear[y].map ? byYear[y].map(function(x){return x.l;}) : byYear[y]);
+    var occTxt = occ===null ? 'À vérifier' : fmtP(occ,0) + ' encaissé';
     var occColor = occ===null ? 'var(--color-text-muted)' : occ>=95 ? 'var(--color-green)' : occ>=80 ? 'var(--color-amber)' : 'var(--color-red)';
 
-    html += '<div class="year-block" id="yb-' + b.id + '-' + y + '" style="border:1px solid var(--color-border);border-radius:12px;margin-bottom:12px;background:var(--color-surface);overflow:hidden">';
-    html += '<div class="year-hd" style="cursor:default;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--color-bg);border-bottom:1px solid var(--color-border)">';
-    html += '<span class="year-title" onclick="this.closest(\'.year-block\').classList.toggle(\'open\')" style="cursor:pointer;flex:1;font-weight:700;font-size:15px">' + y + '</span>';
-    html += '<span class="year-stats" onclick="this.closest(\'.year-block\').classList.toggle(\'open\')" style="cursor:pointer;display:flex;gap:8px;align-items:center;font-size:12px;color:var(--color-text-secondary)">';
-    html += '<span style="color:' + occColor + ';font-weight:700">' + occTxt + ' occupation</span>';
-    html += '<span>•</span><span>' + fmt(encY) + ' encaissé / ' + fmt(prevY) + ' prévu</span>';
-    html += '<span class="year-chev">▾</span></span>';
-    html += '<button class="btn btn-danger btn-sm" style="margin-left:8px;min-height:32px" onclick="event.stopPropagation();supprimerAnnee(\'' + b.id + '\',\'' + y + '\')" title="Supprimer l\'année ' + y + '">🗑</button>';
-    html += '</div>';
-    html += '<div class="year-body" style="padding:10px 12px">';
+    html += '<div class="year-block" id="yb-' + b.id + '-' + y + '">';
+    html += '<div class="year-hd" onclick="this.closest(\'.year-block\').classList.toggle(\'open\')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px">';
+    html += '<div style="display:flex;align-items:center;gap:10px;min-width:0"><span class="year-chev">▾</span><strong>' + y + '</strong><span style="font-size:12px;color:' + occColor + '">' + occTxt + '</span></div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">';
+    html += '<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-secondary)">' + fmt(encY) + ' / ' + fmt(prevY) + '</span>';
+    html += '<button type="button" class="btn btn-danger btn-sm" onclick="event.stopPropagation();supprimerAnnee(\'' + b.id + '\',\'' + y + '\')" title="Supprimer l\'année ' + y + '">Supprimer</button>';
+    html += '</div></div>';
+    html += '<div class="year-body">';
 
-    for(var r=0; r<rows.length; r++){
-      var l = rows[r].l; var idx = rows[r].idx;
+    for(var i=0; i<rows.length; i++){
+      var l = rows[i].l, idx = rows[i].idx;
       var enc = l.encaisse !== null ? nv(l.encaisse) : 0;
       var prev = nv(l.prevu);
       var delta = l.encaisse !== null ? enc - prev : null;
-      var dClass = delta === null ? '' : (delta >= 0 ? 'up' : 'dn');
+      var dClass = delta === null ? '' : (delta >= 0 ? 'text-green' : 'text-red');
       var dTxt = delta === null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta) + ' €';
       var valStr = l.encaisse !== null ? l.encaisse : '';
       var dPay = l.datePaiement || '';
+      var badge = l.statut === 'ok' ? '<span class="badge badge-actif">Payé</span>' : (l.statut === 'nok' ? '<span class="badge badge-annule">Non payé</span>' : '<span class="badge badge-vendu">À vérifier</span>');
 
-      html += '<div class="lrow" style="display:grid;grid-template-columns:130px minmax(170px,220px) minmax(260px,1fr) 80px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--color-border)">';
-      html += '<div><div class="lmois" style="font-weight:700">' + moisLbl(l.mois) + '</div>';
-      html += '<div style="font-size:11px;color:var(--color-text-muted);margin-top:2px">Prévu : ' + fmt(prev) + '</div></div>';
-
-      html += '<div style="display:flex;flex-direction:column;gap:6px">';
-      html += '<label style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted);font-weight:700">Montant encaissé</label>';
-      html += '<input class="form-input" type="number" value="' + valStr + '" placeholder="' + l.prevu + '" style="height:36px" oninput="updLoyer(\'' + b.id + '\',' + idx + ',this.value)">';
-      html += '<label style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted);font-weight:700;margin-top:2px">Date de paiement</label>';
-      html += '<input class="form-input" type="date" value="' + dPay + '" style="height:36px" onchange="updLoyerDate(\'' + b.id + '\',' + idx + ',this.value)">';
+      html += '<div class="loyer-row" style="display:grid;grid-template-columns:minmax(110px,1fr) minmax(150px,170px) minmax(160px,190px) minmax(250px,1fr) 70px;gap:10px;align-items:end;padding:12px 0;border-bottom:1px solid var(--color-border)">';
+      html += '<div><div style="font-weight:700">' + moisLbl(l.mois) + '</div><div style="margin-top:4px">' + badge + '</div></div>';
+      html += '<div class="form-group"><label class="form-label">Montant encaissé</label><input class="form-input" type="number" value="' + valStr + '" placeholder="' + l.prevu + '" onchange="updLoyer(\'' + b.id + '\',' + idx + ',this.value)"></div>';
+      html += '<div class="form-group"><label class="form-label">Date paiement</label><input type="date" class="form-input" value="' + dPay + '" onchange="updLoyerDate(\'' + b.id + '\',' + idx + ',this.value)"></div>';
+      html += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:1px">';
+      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'ok' ? 'btn-success' : 'btn-secondary') + '" onclick="event.stopPropagation();setLoyerStatut(\'' + b.id + '\',' + idx + ',\'ok\')">Payé</button>';
+      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'nok' ? 'btn-danger' : 'btn-secondary') + '" onclick="event.stopPropagation();setLoyerStatut(\'' + b.id + '\',' + idx + ',\'nok\')">Non payé</button>';
+      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'nd' ? 'btn-primary' : 'btn-ghost') + '" onclick="event.stopPropagation();setLoyerStatut(\'' + b.id + '\',' + idx + ',\'nd\')">À vérifier</button>';
       html += '</div>';
-
-      html += '<div class="loyer-actions" style="display:flex;gap:8px;flex-wrap:wrap">';
-      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'ok' ? 'btn-success' : 'btn-secondary') + '" style="min-height:36px;padding:7px 12px" onclick="setLoyerStatut(\'' + b.id + '\',' + idx + ',\'ok\')">✓ Payé</button>';
-      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'nok' ? 'btn-danger' : 'btn-secondary') + '" style="min-height:36px;padding:7px 12px" onclick="setLoyerStatut(\'' + b.id + '\',' + idx + ',\'nok\')">✕ Non payé</button>';
-      html += '<button type="button" class="btn btn-sm ' + (l.statut === 'nd' ? 'btn-primary' : 'btn-ghost') + '" style="min-height:36px;padding:7px 12px" onclick="setLoyerStatut(\'' + b.id + '\',' + idx + ',\'nd\')">À vérifier</button>';
-      html += '</div>';
-      html += '<div class="ldelta ' + dClass + '" style="font-weight:700;text-align:right;font-family:var(--font-mono)">' + dTxt + '</div>';
+      html += '<div class="font-mono ' + dClass + '" style="text-align:right;padding-bottom:8px">' + dTxt + '</div>';
       html += '</div>';
     }
     html += '</div></div>';
   }
 
   if(!years.length){
-    html = '<div class="empty" style="padding:16px">Aucun mois enregistré. Cliquez sur "+ Mois".</div>';
+    html = '<div class="empty-state" style="padding:24px"><div class="empty-title">Aucun mois enregistré</div><div class="empty-desc">Cliquez sur + Mois pour démarrer le suivi.</div></div>';
   }
 
   el.innerHTML = html;
@@ -1013,6 +1003,7 @@ function renderLoyers(b){
   var recap = gid('lrecap-' + b.id);
   if(recap) recap.textContent = nbGlobal + ' mois · Encaissé : ' + fmt(encTotalGlobal) + ' · Prévu : ' + fmt(prevTotalGlobal);
 }
+
 function updLoyer(bid, idx, val){
   var b = getBien(bid);
   if(!b) return;
@@ -1034,6 +1025,38 @@ function updLoyer(bid, idx, val){
   }
   var recap = gid('lrecap-' + bid);
   if(recap) recap.textContent = nbTotal + ' mois \u00b7 Encaiss\u00e9 : ' + fmt(encTotal) + ' \u00b7 Pr\u00e9vu : ' + fmt(prevTotal);
+}
+
+function setLoyerStatut(bid, idx, statut){
+  var b = getBien(bid);
+  if(!b || !b.loyers || !b.loyers[idx]) return;
+  var l = b.loyers[idx];
+  l.statut = statut;
+  if(statut === 'ok'){
+    if(l.encaisse === null || nv(l.encaisse) === 0) l.encaisse = nv(l.prevu);
+    if(!l.datePaiement){
+      var d = new Date();
+      var m = String(d.getMonth()+1); if(m.length<2) m='0'+m;
+      var day = String(d.getDate()); if(day.length<2) day='0'+day;
+      l.datePaiement = d.getFullYear() + '-' + m + '-' + day;
+    }
+  } else if(statut === 'nok'){
+    l.encaisse = 0;
+    l.datePaiement = '';
+  } else {
+    l.statut = 'nd';
+    l.encaisse = null;
+    l.datePaiement = '';
+  }
+  renderLoyers(b);
+  saveAll();
+}
+
+function updLoyerDate(bid, idx, val){
+  var b = getBien(bid);
+  if(!b || !b.loyers || !b.loyers[idx]) return;
+  b.loyers[idx].datePaiement = val || '';
+  saveAll();
 }
 
 function cycleLoyer(bid, idx){
@@ -2713,3 +2736,7 @@ function loadExemple(){
 // ═══════════════════════════════════════════════════
 // INIT — chargement automatique des données
 // ═══════════════════════════════════════════════════
+// Exposition explicite pour les boutons HTML inline
+window.setLoyerStatut = setLoyerStatut;
+window.updLoyer = updLoyer;
+window.updLoyerDate = updLoyerDate;
