@@ -925,6 +925,15 @@ function restoreOpenYears(bid, openSet, currentYear){
 function renderLoyers(b){
   var el = gid('lrows-' + b.id); if(!el) return;
 
+  // CSS injecté ici pour garantir que les années sont réellement pliables/dépliables,
+  // même si aucun fichier CSS externe ne contient encore ces règles.
+  if(!document.getElementById('pf-loyers-years-style')){
+    var st = document.createElement('style');
+    st.id = 'pf-loyers-years-style';
+    st.textContent = '.year-block .year-body{display:none}.year-block.open .year-body{display:block}.year-block .year-chev{display:inline-block;transition:transform 150ms ease}.year-block.open .year-chev{transform:rotate(0deg)}.year-block:not(.open) .year-chev{transform:rotate(-90deg)}';
+    document.head.appendChild(st);
+  }
+
   var openBefore = getOpenYears(b.id);
   var currentYear = String(new Date().getFullYear());
 

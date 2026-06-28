@@ -207,6 +207,9 @@ function renderDashboard() {
 
   setHTML('kpi-container', kpiHtml);
 
+  // Flux mensuels consolidés : locatif seul + impact RP
+  renderFluxMensuels(actifs, locs);
+
   // Alertes
   renderAlertesDash(actifs, locs);
 
@@ -226,6 +229,87 @@ function kpiCard(label, value, valueClass, sub) {
     '<div class="kpi-label">' + label + '</div>' +
     '<div class="kpi-value ' + (valueClass || '') + '">' + value + '</div>' +
     (sub ? '<div class="kpi-sub">' + sub + '</div>' : '') +
+    '</div>';
+}
+
+
+function renderFluxMensuels(actifs, locs) {
+  var kpi = gid('kpi-container');
+  if (!kpi || !kpi.parentNode) return;
+
+  var box = gid('dash-flux-mensuels');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'dash-flux-mensuels';
+    box.className = 'card mb-6';
+    kpi.parentNode.insertBefore(box, kpi.nextSibling);
+  }
+
+  var entreesLoc = 0;
+  var sortiesLoc = 0;
+  var resultatLocAvantImpot = 0;
+  var impotLoc = 0;
+  var resultatLocApresImpot = 0;
+  var rpMensualites = 0;
+  var nbLoc = 0;
+  var nbRp = 0;
+
+  for (var i = 0; i < locs.length; i++) {
+    var b = locs[i];
+    nbLoc++;
+    var loyer = nv(b.loyer);
+    var credit = nv(b.mens) + nv(b.assur);
+    var charges = (nv(b.tf) / 12) + nv(b.pno) + nv(b.copro) + nv(b.gest) + nv(b.provisionTravaux);
+    var impot = typeof calcImpotMensuel === 'function' ? calcImpotMensuel(b) : 0;
+    var cfAvant = loyer - credit - charges;
+    var cfApres = cfAvant - impot;
+
+    entreesLoc += loyer;
+    sortiesLoc += credit + charges + impot;
+    resultatLocAvantImpot += cfAvant;
+    impotLoc += impot;
+    resultatLocApresImpot += cfApres;
+  }
+
+  for (var j = 0; j < actifs.length; j++) {
+    var a = actifs[j];
+    if (a.type === 'rp') {
+      nbRp++;
+      rpMensualites += nv(a.mens) + nv(a.assur);
+    }
+  }
+
+  var resultatApresRp = resultatLocApresImpot - rpMensualites;
+  var couvertureRp = rpMensualites > 0 ? Math.max(0, Math.min(100, (resultatLocApresImpot / rpMensualites) * 100)) : null;
+  var resteRp = rpMensualites - Math.max(0, resultatLocApresImpot);
+  if (resteRp < 0) resteRp = 0;
+
+  var statutParc = resultatLocApresImpot >= 0 ? 'Parc locatif positif' : 'Parc locatif négatif';
+  var statutCouleur = resultatLocApresImpot >= 0 ? 'var(--color-green)' : 'var(--color-red)';
+  var rpTxt = rpMensualites > 0
+    ? (resultatLocApresImpot >= rpMensualites
+        ? 'Le locatif couvre 100 % de la RP et laisse ' + fmtEuro(resultatLocApresImpot - rpMensualites) + '/mois.'
+        : 'Le locatif couvre ' + fmtPct(couvertureRp || 0, 0) + ' de la RP. Reste à financer : ' + fmtEuro(resteRp) + '/mois.')
+    : 'Aucune résidence principale active renseignée.';
+
+  box.innerHTML =
+    '<div class="card-header">' +
+      '<div>' +
+        '<div class="card-title">Flux mensuels consolidés</div>' +
+        '<div class="text-xs text-secondary">Locatif après charges et impôts, puis impact de la résidence principale.</div>' +
+      '</div>' +
+      '<div class="badge" style="background:' + (resultatLocApresImpot >= 0 ? 'var(--color-green-light)' : 'var(--color-red-light)') + ';color:' + statutCouleur + '">' + statutParc + '</div>' +
+    '</div>' +
+    '<div class="card-body-sm">' +
+      '<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:0">' +
+        kpiCard('Entrées locatives', fmtEuro(entreesLoc) + '/m', 'text-green', nbLoc + ' bien(s) locatif(s)') +
+        kpiCard('Sorties locatives', fmtEuro(sortiesLoc) + '/m', 'text-red', 'Crédits + charges + impôts') +
+        kpiCard('Résultat locatif', fmtEuro(resultatLocApresImpot) + '/m', resultatLocApresImpot >= 0 ? 'text-green' : 'text-red', 'Avant impôt : ' + fmtEuro(resultatLocAvantImpot) + ' · Impôt : ' + fmtEuro(impotLoc)) +
+        kpiCard('Après crédit RP', fmtEuro(resultatApresRp) + '/m', resultatApresRp >= 0 ? 'text-green' : 'text-red', 'RP : ' + fmtEuro(rpMensualites) + '/m') +
+      '</div>' +
+      '<div class="alert alert-info mt-4" style="align-items:center">' +
+        '<div><strong>Lecture rapide :</strong> ' + rpTxt + '</div>' +
+      '</div>' +
     '</div>';
 }
 
