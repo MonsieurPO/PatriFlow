@@ -661,11 +661,26 @@ function deleteBien(bid) {
 }
 
 /* Helpers conservés de la v2.9 */
+// Rafraîchit instantanément la fiche bien (cartouches + onglet courant)
+// après toute modification, sans recharger la page.
+function rafraichirFiche(id) {
+  if (typeof CURRENT_BIEN_ID === 'undefined' || CURRENT_BIEN_ID !== id) return;
+  var b = getBien(id);
+  if (!b) return;
+  if (typeof renderFicheHeader === 'function') {
+    setHTML('fiche-bien-header', renderFicheHeader(b));
+  }
+  if (typeof switchFicheTab === 'function' && typeof FICHE_TAB !== 'undefined') {
+    switchFicheTab(FICHE_TAB, b);
+  }
+}
+
 function updBien(id, key, val) {
   var b = getBien(id);
   if (!b) return;
   b[key] = nv(val);
   saveAll();
+  rafraichirFiche(id);
 }
 
 function updBienStr(id, key, val) {
@@ -673,13 +688,7 @@ function updBienStr(id, key, val) {
   if (!b) return;
   b[key] = val;
   saveAll();
-  if (key === 'statut' || key === 'structureAchat') {
-    // Refresh tabs si nécessaire
-    if (CURRENT_BIEN_ID === id) {
-      setHTML('fiche-bien-header', renderFicheHeader(b));
-      setHTML('fiche-bien-tabs', renderFicheTabs(b));
-    }
-  }
+  rafraichirFiche(id);
 }
 
 function updBienNom(id, val) {
@@ -687,6 +696,7 @@ function updBienNom(id, val) {
   if (!b) return;
   b.nom = val;
   saveAll();
+  rafraichirFiche(id);
 }
 
 function updBienGeneral(id, key, val) {
@@ -694,6 +704,7 @@ function updBienGeneral(id, key, val) {
   if (!b) return;
   b[key] = nv(val);
   saveAll();
+  rafraichirFiche(id);
 }
 
 function updBienGeneralStr(id, key, val) {
@@ -701,6 +712,7 @@ function updBienGeneralStr(id, key, val) {
   if (!b) return;
   b[key] = val;
   saveAll();
+  rafraichirFiche(id);
 }
 
 function updBienLoyer(id, val) {
@@ -709,6 +721,7 @@ function updBienLoyer(id, val) {
   b.loyer = nv(val);
   initLoyers(b);
   saveAll();
+  rafraichirFiche(id);
 }
 
 function updBienCharge(id, key, val) {
