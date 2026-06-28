@@ -32,17 +32,34 @@ function goPage(name, btn){
 }
 
 function addNavTab(b){
+  if(!b || !b.id) return;
   if(gid('btn-bien-' + b.id)) return;
+
+  // Compatibilité avec la nouvelle interface PatriFlow :
+  // l'ancien HTML possédait #mainnav et #btn-add ; la nouvelle sidebar utilise .sidebar-nav.
+  // Si #mainnav n'existe pas, on ignore simplement l'ajout d'onglet dynamique
+  // au lieu de bloquer tout le chargement de l'application.
   var nav = gid('mainnav');
   var addBtn = gid('btn-add');
+  if(!nav){
+    console.warn('addNavTab ignoré : #mainnav introuvable dans cette version de l’interface.');
+    return;
+  }
+
   var btn = document.createElement('button');
   btn.className = 'nb';
   btn.id = 'btn-bien-' + b.id;
-  var shortName = b.nom.length > 10 ? b.nom.slice(0,10) + '...' : b.nom;
+  var nom = b.nom || 'Bien';
+  var shortName = nom.length > 10 ? nom.slice(0,10) + '...' : nom;
   btn.textContent = shortName;
   btn.setAttribute('data-bid', b.id);
   btn.onclick = function(){ goPage('bien-' + b.id, btn); };
-  nav.insertBefore(btn, addBtn);
+
+  if(addBtn && addBtn.parentNode === nav){
+    nav.insertBefore(btn, addBtn);
+  } else {
+    nav.appendChild(btn);
+  }
 }
 
 // v2.3 : met à jour le libellé de l'onglet nav après renommage d'un bien
