@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1C1F2E">
+  <title>Patrimoine Cockpit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <!-- Supabase SDK -->
+  <!-- Supabase SDK — crossorigin requis pour que Safari révèle les vraies erreurs -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     APP SHELL
+     ══════════════════════════════════════════════════════= -->
+<div class="app-shell">
+
+  <!-- ── MOBILE HEADER ── -->
+  <div class="mobile-header">
+    <button class="hamburger" onclick="toggleMobileMenu()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <span class="mobile-logo-text" style="font-size:15px;font-weight:700;color:#fff">🏠 Patrimoine</span>
+    <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+      <button onclick="saveAll()" style="background:rgba(255,255,255,.12);border:none;
+        color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;
+        cursor:pointer;min-height:36px" title="Sauvegarder">💾</button>
+      <button onclick="ouvrirModalAuth()" style="background:rgba(255,255,255,.12);border:none;
+        color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;
+        cursor:pointer;min-height:36px" title="Cloud">☁</button>
+    </div>
+  </div>
+  <div class="mobile-overlay" onclick="closeMobileMenu()"></div>
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+
+    <!-- Logo -->
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-mark">
+        <div class="sidebar-logo-icon">🏠</div>
+        <div class="sidebar-logo-text">
+          <span class="sidebar-logo-name">Patrimoine</span>
+          <span class="sidebar-logo-sub">Cockpit</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation principale -->
+    <nav class="sidebar-nav">
+      <div class="sidebar-nav-section">
+        <div class="sidebar-nav-label">Principal</div>
+        <button class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+          <span class="nav-item-icon">📊</span> Tableau de bord
+        </button>
+        <button class="nav-item" data-page="biens" onclick="navigateTo('biens')">
+          <span class="nav-item-icon">🏘</span> Mes biens
+        </button>
+        <button class="nav-item" data-page="locataires" onclick="navigateTo('locataires')">
+          <span class="nav-item-icon">👥</span> Locataires
+        </button>
+        <button class="nav-item" data-page="credits" onclick="navigateTo('credits')">
+          <span class="nav-item-icon">🏦</span> Crédits
+        </button>
+        <button class="nav-item" data-page="loyers" onclick="navigateTo('loyers')">
+          <span class="nav-item-icon">💶</span> Loyers
+        </button>
+        <button class="nav-item" data-page="documents" onclick="navigateTo('documents')">
+          <span class="nav-item-icon">📄</span> Documents
+        </button>
+      </div>
+
+      <div class="sidebar-nav-section">
+        <div class="sidebar-nav-label">Analyse</div>
+        <button class="nav-item" data-page="cockpit" onclick="navigateTo('cockpit')">
+          <span class="nav-item-icon">📈</span> Synthèse
+        </button>
+        <button class="nav-item" data-page="parametres" onclick="navigateTo('parametres')">
+          <span class="nav-item-icon">⚙️</span> Paramètres
+        </button>
+      </div>
+    </nav>
+
+    <!-- Alertes rapides -->
+    <div class="sidebar-alerts" id="sidebar-alertes"></div>
+
+    <!-- Profil utilisateur -->
+    <div class="sidebar-footer">
+      <div class="sidebar-user" onclick="ouvrirModalAuth()">
+        <div class="sidebar-avatar" id="sidebar-avatar">M</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebar-user-name">Utilisateur</div>
+          <div class="sidebar-user-status">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="sidebar-user-status-text">Local uniquement</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+    <!-- Header desktop -->
+    <header class="header">
+      <div class="header-title" id="header-title">Tableau de bord</div>
+
+      <!-- Recherche -->
+      <div class="header-search">
+        <span class="header-search-icon">🔍</span>
+        <input type="text" placeholder="Rechercher un bien, locataire..." oninput="rechercheGlobale(this.value)">
+      </div>
+
+      <!-- Actions -->
+      <div class="header-actions">
+        <button class="header-icon-btn" onclick="exportData()" data-tooltip="Backup JSON">📦</button>
+        <button class="header-icon-btn" onclick="gid('import-file-header').click()" data-tooltip="Importer">📂</button>
+        <input type="file" id="import-file-header" accept=".json" style="display:none" onchange="importData(event)">
+        <button class="header-icon-btn" onclick="saveAll()" data-tooltip="Sauvegarder">💾</button>
+        <button class="header-icon-btn" onclick="ouvrirModalAuth()" data-tooltip="Synchronisation cloud">
+          ☁ <span id="header-auth-dot" class="status-dot" style="position:absolute;top:6px;right:6px"></span>
+        </button>
+        <div class="header-avatar" onclick="navigateTo('parametres')" id="header-avatar">M</div>
+      </div>
+    </header>
+
+    <!-- Zone contenu principal -->
+    <div class="content">
+
+      <!-- ═══ PAGE : DASHBOARD ═══ -->
+      <div class="page-view active" id="page-dashboard">
+        <div class="page-header">
+          <div>
+            <div class="page-title" id="dash-greeting">Bonjour 👋</div>
+            <div class="page-subtitle">Voici l'état de votre patrimoine aujourd'hui.</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="navigateTo('add')">+ Ajouter un bien</button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid" id="kpi-container">
+          <!-- Rempli par renderDashboard() -->
+        </div>
+
+        <!-- Graphique + Événements -->
+        <div class="flex gap-4 mb-6 dash-row" style="flex-wrap:wrap">
+          <div class="card flex-1 dash-card-graph" style="min-width:280px">
+            <div class="card-header">
+              <div class="card-title">Évolution du patrimoine</div>
+              <select class="form-input" style="width:auto;font-size:11px;padding:4px 8px">
+                <option>12 mois</option>
+                <option>24 mois</option>
+                <option>60 mois</option>
+              </select>
+            </div>
+            <div class="card-body" id="dash-graph"><!-- graphique --></div>
+          </div>
+
+          <div class="card dash-card-events" style="min-width:260px;flex:0 0 300px">
+            <div class="card-header">
+              <div class="card-title">Événements récents</div>
+              <button class="btn btn-ghost btn-sm">Voir tout →</button>
+            </div>
+            <div class="card-body-sm" id="dash-events"><!-- events --></div>
+          </div>
+        </div>
+
+        <!-- Alertes -->
+        <div id="dash-alertes" class="mb-6"></div>
+
+        <!-- Mes biens aperçu -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Mes biens</div>
+            <button class="btn btn-ghost btn-sm" onclick="navigateTo('biens')">Voir tout →</button>
+          </div>
+          <div id="dash-biens-table"><!-- table --></div>
+        </div>
+      </div>
+
+      <!-- ═══ PAGE : MES BIENS ═══ -->
+      <div class="page-view" id="page-biens">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Mes biens</div>
+            <div class="page-subtitle" id="biens-subtitle"></div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="navigateTo('add')">+ Ajouter un bien</button>
+          </div>
+        </div>
+        <div id="page-biens-content"><!-- rempli par renderBiens() --></div>
+      </div>
+
+      <!-- ═══ PAGE : FICHE BIEN ═══ -->
+      <div class="page-view" id="page-bien">
+        <div id="fiche-bien-header"><!-- header fiche --></div>
+        <div id="fiche-bien-tabs" class="mt-4 mb-4"><!-- onglets --></div>
+        <div id="fiche-bien-content"><!-- contenu onglet actif --></div>
+      </div>
+
+      <!-- ═══ PAGE : LOCATAIRES ═══ -->
+      <div class="page-view" id="page-locataires">
+        <div class="page-header">
+          <div class="page-title">Locataires</div>
+          <div class="page-actions">
+            <button class="btn btn-primary">+ Ajouter un locataire</button>
+          </div>
+        </div>
+        <div id="page-locataires-content"></div>
+      </div>
+
+      <!-- ═══ PAGE : CRÉDITS ═══ -->
+      <div class="page-view" id="page-credits">
+        <div class="page-header">
+          <div class="page-title">Crédits en cours</div>
+        </div>
+        <div id="page-credits-content"></div>
+      </div>
+
+      <!-- ═══ PAGE : LOYERS ═══ -->
+      <div class="page-view" id="page-loyers">
+        <div class="page-header">
+          <div class="page-title">Suivi des loyers</div>
+        </div>
+        <div id="page-loyers-content"></div>
+      </div>
+
+      <!-- ═══ PAGE : DOCUMENTS ═══ -->
+      <div class="page-view" id="page-documents">
+        <div class="page-header">
+          <div class="page-title">Documents</div>
+        </div>
+        <div id="page-documents-content"></div>
+      </div>
+
+      <!-- ═══ PAGE : COCKPIT / SYNTHÈSE ═══ -->
+      <div class="page-view" id="page-cockpit">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Synthèse patrimoniale</div>
+            <div class="page-subtitle">Vue consolidée de tous vos biens actifs.</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="exporterDossierPDF()">📄 Dossier PDF</button>
+            <button class="btn btn-secondary" onclick="snapshotPatrimoine();saveAll();renderCockpit()">📸 Snapshot</button>
+          </div>
+        </div>
+        <div id="page-cockpit-content"></div>
+      </div>
+
+      <!-- ═══ PAGE : PARAMÈTRES ═══ -->
+      <div class="page-view" id="page-parametres">
+        <div class="page-header">
+          <div class="page-title">Paramètres</div>
+        </div>
+        <div id="page-parametres-content"></div>
+      </div>
+
+      <!-- ═══ PAGE : AJOUTER UN BIEN ═══ -->
+      <div class="page-view" id="page-add">
+        <div class="page-header">
+          <div>
+            <button class="btn btn-ghost btn-sm mb-2" onclick="navigateTo('biens')">← Retour</button>
+            <div class="page-title">Ajouter un bien</div>
+          </div>
+        </div>
+        <div class="card" style="max-width:600px">
+          <div class="card-header"><div class="card-title">Informations du bien</div></div>
+          <div class="card-body" id="add-form-content">
+            <!-- Formulaire ajout bien -->
+            <div class="form-group mb-4">
+              <label class="form-label">Nom du bien <em>*</em></label>
+              <input type="text" class="form-input" id="nb-nom" placeholder="Studio Allassac, Maison Objat...">
+            </div>
+            <div class="form-row mb-4">
+              <div class="form-group">
+                <label class="form-label">Type de bien</label>
+                <select class="form-input" id="nb-type" onchange="toggleLocFields()">
+                  <option value="rp">Résidence principale</option>
+                  <option value="loc">Locatif</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Statut</label>
+                <select class="form-input" id="nb-statut">
+                  <option value="actif">Actif</option>
+                  <option value="projet">Projet</option>
+                  <option value="a-vendre">À vendre</option>
+                  <option value="vendu">Vendu</option>
+                  <option value="rembourse">Remboursé</option>
+                  <option value="annule">Annulé</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group mb-4">
+              <label class="form-label">Adresse</label>
+              <input type="text" class="form-input" id="nb-adresse" placeholder="15 rue de la Paix, 19130 Objat">
+            </div>
+            <div class="form-row mb-4">
+              <div class="form-group">
+                <label class="form-label">Prix d'achat <em>€</em></label>
+                <input type="number" class="form-input" id="nb-achat" placeholder="142000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Frais notaire+agence <em>€</em></label>
+                <input type="number" class="form-input" id="nb-frais" placeholder="11000">
+              </div>
+            </div>
+            <div class="form-row mb-4">
+              <div class="form-group">
+                <label class="form-label">Valeur estimée <em>€</em></label>
+                <input type="number" class="form-input" id="nb-valeur" placeholder="220000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date d'achat</label>
+                <input type="date" class="form-input" id="nb-date">
+              </div>
+            </div>
+
+            <div class="divider-label">Crédit</div>
+            <div class="form-row mb-4">
+              <div class="form-group">
+                <label class="form-label">Capital emprunté <em>€</em></label>
+                <input type="number" class="form-input" id="nb-capitalInit" placeholder="142000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Capital restant dû <em>€</em></label>
+                <input type="number" class="form-input" id="nb-capitalDu" placeholder="129168">
+              </div>
+            </div>
+            <div class="form-row mb-4">
+              <div class="form-group">
+                <label class="form-label">Mensualité <em>€</em></label>
+                <input type="number" class="form-input" id="nb-mens" placeholder="748">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Assurance <em>€/m</em></label>
+                <input type="number" class="form-input" id="nb-assur" placeholder="0">
+              </div>
+            </div>
+            <div class="form-row mb-4">
+              <div class="form-group">
+                <label class="form-label">Taux <em>%</em></label>
+                <input type="number" class="form-input" id="nb-taux" placeholder="3.10" step="0.01">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fin de crédit</label>
+                <input type="date" class="form-input" id="nb-fincredit">
+              </div>
+            </div>
+
+            <div id="loc-fields" style="display:none">
+              <div class="divider-label">Locatif</div>
+              <div class="form-row mb-4">
+                <div class="form-group">
+                  <label class="form-label">Loyer mensuel HC <em>€</em></label>
+                  <input type="number" class="form-input" id="nb-loyer" placeholder="395">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Taxe foncière <em>€/an</em></label>
+                  <input type="number" class="form-input" id="nb-tf" placeholder="800">
+                </div>
+              </div>
+              <div class="form-row mb-4">
+                <div class="form-group">
+                  <label class="form-label">PNO <em>€/m</em></label>
+                  <input type="number" class="form-input" id="nb-pno" placeholder="15">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Régime fiscal</label>
+                  <select class="form-input" id="nb-regimeFiscal">
+                    <option value="micro-foncier">Micro-foncier (30%)</option>
+                    <option value="reel-foncier">Réel foncier</option>
+                    <option value="micro-bic">Micro-BIC (50%)</option>
+                    <option value="lmnp-reel">LMNP réel</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group mb-4">
+                <label class="form-label">TMI</label>
+                <select class="form-input" id="nb-tmi">
+                  <option value="0">0 %</option>
+                  <option value="11">11 %</option>
+                  <option value="30">30 %</option>
+                  <option value="41">41 %</option>
+                  <option value="45">45 %</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="add-fb" class="mb-3"></div>
+            <div class="flex gap-3">
+              <button class="btn btn-primary" onclick="saveBien()">Enregistrer le bien</button>
+              <button class="btn btn-secondary" onclick="navigateTo('biens')">Annuler</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div><!-- /app-shell -->
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL ONBOARDING — affiché au premier lancement
+     ══════════════════════════════════════════════════════= -->
+<div class="modal-overlay" id="onboarding-overlay">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-body" style="padding:32px">
+      <div style="display:flex;justify-content:center;gap:8px;margin-bottom:32px">
+        <div class="onboarding-dot active" style="width:8px;height:8px;border-radius:50%;background:var(--color-blue);transition:all .2s"></div>
+        <div class="onboarding-dot" style="width:8px;height:8px;border-radius:50%;background:var(--color-border-md);transition:all .2s"></div>
+        <div class="onboarding-dot" style="width:8px;height:8px;border-radius:50%;background:var(--color-border-md);transition:all .2s"></div>
+      </div>
+      <!-- Étape 1 -->
+      <div id="onboarding-step-1">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:48px;margin-bottom:12px">🏠</div>
+          <h2 style="font-size:20px;font-weight:700;margin-bottom:8px">Bienvenue dans Patrimoine Cockpit</h2>
+          <p class="text-secondary text-sm">Suivez, analysez et optimisez votre portefeuille immobilier en quelques minutes.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-bg);border-radius:var(--radius-md)">
+            <span style="font-size:20px">📊</span>
+            <div><div class="font-medium">Cash-flow en temps réel</div><div class="text-xs text-secondary">Après crédit, charges et impôt</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-bg);border-radius:var(--radius-md)">
+            <span style="font-size:20px">☁️</span>
+            <div><div class="font-medium">Synchronisation cloud</div><div class="text-xs text-secondary">PC et iPhone toujours à jour</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-bg);border-radius:var(--radius-md)">
+            <span style="font-size:20px">📄</span>
+            <div><div class="font-medium">Dossier banquier PDF</div><div class="text-xs text-secondary">Généré en 1 clic</div></div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full btn-lg" onclick="showOnboardingStep(2)">Commencer →</button>
+        <button class="btn btn-ghost btn-full mt-2" onclick="onboardingDemo()">Voir une démo avec des données fictives</button>
+        <button class="btn btn-ghost btn-full" onclick="closeOnboarding(true)" style="font-size:11px;color:var(--color-text-muted)">J'ai déjà un compte, passer l'introduction</button>
+      </div>
+      <!-- Étape 2 -->
+      <div id="onboarding-step-2" style="display:none">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:48px;margin-bottom:12px">⚡</div>
+          <h2 style="font-size:20px;font-weight:700;margin-bottom:8px">Démarrage en 2 minutes</h2>
+          <p class="text-secondary text-sm">Ajoutez votre premier bien immobilier.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--color-blue);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">1</div>
+            <div><div class="font-medium text-sm">Cliquez sur "+ Ajouter un bien"</div><div class="text-xs text-secondary">Dans le menu gauche ou le dashboard</div></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--color-blue);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">2</div>
+            <div><div class="font-medium text-sm">Renseignez prix d'achat, mensualité et loyer</div><div class="text-xs text-secondary">Les autres champs sont optionnels au départ</div></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--color-blue);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">3</div>
+            <div><div class="font-medium text-sm">Votre cash-flow s'affiche immédiatement</div><div class="text-xs text-secondary">Avant et après impôt, avec fiscalité personnalisée</div></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="showOnboardingStep(1)">← Retour</button>
+          <button class="btn btn-primary flex-1" onclick="showOnboardingStep(3)">Suivant →</button>
+        </div>
+      </div>
+      <!-- Étape 3 -->
+      <div id="onboarding-step-3" style="display:none">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:48px;margin-bottom:12px">☁️</div>
+          <h2 style="font-size:20px;font-weight:700;margin-bottom:8px">Synchronisation cloud</h2>
+          <p class="text-secondary text-sm">Vos données sur tous vos appareils.</p>
+        </div>
+        <div style="background:var(--color-bg);border-radius:var(--radius-md);padding:16px;margin-bottom:16px">
+          <div class="text-sm font-medium mb-2">Configuration (2 minutes) :</div>
+          <div class="text-xs text-secondary" style="line-height:1.8">
+            1. Cliquez sur <strong>☁ Cloud</strong> dans le header<br>
+            2. Onglet <strong>Configuration</strong> → collez URL + clé Supabase<br>
+            3. Onglet <strong>Connexion</strong> → créez votre compte<br>
+            4. Synchronisation automatique activée ✓
+          </div>
+        </div>
+        <div class="alert alert-info text-xs mb-4">
+          💡 Vous pouvez commencer sans cloud et synchroniser plus tard.
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="showOnboardingStep(2)">← Retour</button>
+          <button class="btn btn-primary flex-1" onclick="onboardingNext(3)">Ajouter mon premier bien →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL AUTH SUPABASE
+     ══════════════════════════════════════════════════════= -->
+<div class="modal-overlay" id="modal-auth">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">☁ Synchronisation cloud</div>
+      <button class="btn btn-ghost btn-icon" onclick="fermerModalAuth()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm text-secondary mb-4" id="auth-modal-sub">Connectez-vous pour synchroniser vos données entre vos appareils.</p>
+
+      <!-- Onglets -->
+      <div class="tabs mb-4">
+        <button class="tab-item active" id="tab-login" onclick="switchAuthTab('login')">Connexion</button>
+        <button class="tab-item" id="tab-config" onclick="switchAuthTab('config')">Configuration</button>
+      </div>
+
+      <!-- Panneau connexion -->
+      <div id="auth-panel-login">
+        <div id="auth-logged-out">
+          <div class="form-group mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="auth-email" placeholder="votre@email.com" autocomplete="email">
+          </div>
+          <div class="form-group mb-4">
+            <label class="form-label">Mot de passe</label>
+            <input type="password" class="form-input" id="auth-password" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <div id="auth-error" class="alert alert-danger mb-3" style="display:none"></div>
+          <div class="flex gap-2 mb-2">
+            <button class="btn btn-primary flex-1" onclick="authLogin()">Se connecter</button>
+            <button class="btn btn-secondary flex-1" onclick="authSignup()">Créer un compte</button>
+          </div>
+          <button class="btn btn-ghost btn-full" onclick="authResetPassword()">Mot de passe oublié</button>
+        </div>
+        <div id="auth-logged-in" style="display:none">
+          <div class="alert alert-success mb-4">
+            ✅ Connecté en tant que <strong id="auth-user-email"></strong>
+          </div>
+          <div class="flex flex-col gap-2">
+            <button class="btn btn-primary btn-full" onclick="syncCloud()">⇄ Synchroniser maintenant</button>
+            <button class="btn btn-secondary btn-full" onclick="restaurerDepuisCloud()">☁ Restaurer depuis le cloud</button>
+            <button class="btn btn-danger btn-full" onclick="authLogout()">Se déconnecter</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panneau configuration -->
+      <div id="auth-panel-config" style="display:none">
+        <div class="alert alert-info mb-4 text-sm">
+          Renseignez votre Project URL et votre Publishable key Supabase.<br>
+          Ces informations sont stockées uniquement dans votre navigateur.
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label">Project URL</label>
+          <input type="text" class="form-input" id="cfg-supa-url" placeholder="https://xxxx.supabase.co">
+        </div>
+        <div class="form-group mb-4">
+          <label class="form-label">Publishable key (anon key)</label>
+          <input type="text" class="form-input" id="cfg-supa-key" placeholder="eyJ...">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="sauvegarderConfigSupabase()">✓ Enregistrer la configuration</button>
+        <div id="cfg-supa-fb" class="mt-3 text-sm"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SCRIPTS
+     ══════════════════════════════════════════════════════= -->
+<script src="js/data.js"></script>
+<script src="js/ui-helpers.js"></script>
+<script src="js/analytics.js"></script>
+<script src="js/app.js"></script>
+<script src="js/supabase.js"></script>
+
+<script>
+/* ── Fonctions complémentaires conservées de la v2.9 ── */
+
+/* togSec : accordéon dans les fiches */
+function togSec(hd) {
+  hd.parentElement.classList.toggle('open');
+}
+
+/* toggleLocFields : afficher/masquer les champs locatifs dans le formulaire d'ajout */
+function toggleLocFields() {
+  var type = gid('nb-type') ? gid('nb-type').value : 'rp';
+  var el = gid('loc-fields');
+  if (el) el.style.display = type === 'loc' ? '' : 'none';
+}
+
+/* Recherche globale (simple) */
+function rechercheGlobale(q) {
+  if (!q || q.length < 2) return;
+  var results = [];
+  for (var i = 0; i < S.biens.length; i++) {
+    var b = S.biens[i];
+    if ((b.nom + b.adresse + b.banque).toLowerCase().indexOf(q.toLowerCase()) >= 0) {
+      results.push(b);
+    }
+  }
+  if (results.length === 1) navigateTo('bien', results[0].id);
+}
+
+/* saveBien adapté pour le nouveau formulaire */
+function saveBien() {
+  var nom = gid('nb-nom') ? gid('nb-nom').value.trim() : '';
+  if (!nom) {
+    setHTML('add-fb', '<div class="alert alert-danger">Entrez un nom pour ce bien.</div>');
+    return;
+  }
+  var id = uid();
+  var type = gid('nb-type') ? gid('nb-type').value : 'rp';
+  var b = normalizeBien({
+    id: id,
+    nom: nom,
+    type: type,
+    statut: gid('nb-statut') ? gid('nb-statut').value : 'actif',
+    adresse: gid('nb-adresse') ? gid('nb-adresse').value.trim() : '',
+    achat: nv(gid('nb-achat') ? gid('nb-achat').value : 0),
+    frais: nv(gid('nb-frais') ? gid('nb-frais').value : 0),
+    valeur: nv(gid('nb-valeur') ? gid('nb-valeur').value : 0),
+    date: gid('nb-date') ? gid('nb-date').value : '',
+    capitalInit: nv(gid('nb-capitalInit') ? gid('nb-capitalInit').value : 0),
+    capitalDu: nv(gid('nb-capitalDu') ? gid('nb-capitalDu').value : 0),
+    mens: nv(gid('nb-mens') ? gid('nb-mens').value : 0),
+    assur: nv(gid('nb-assur') ? gid('nb-assur').value : 0),
+    taux: nv(gid('nb-taux') ? gid('nb-taux').value : 0),
+    finCredit: gid('nb-fincredit') ? gid('nb-fincredit').value : '',
+    loyer: nv(gid('nb-loyer') ? gid('nb-loyer').value : 0),
+    tf: nv(gid('nb-tf') ? gid('nb-tf').value : 0),
+    pno: nv(gid('nb-pno') ? gid('nb-pno').value : 0),
+    regimeFiscal: gid('nb-regimeFiscal') ? gid('nb-regimeFiscal').value : 'micro-foncier',
+    tmi: nv(gid('nb-tmi') ? gid('nb-tmi').value : 11),
+  });
+  autoGenererMoisAnnee(b);
+  S.biens.push(b);
+  if (typeof Analytics !== 'undefined') Analytics.track('bien.created', {
+    type: b.type, statut: b.statut, total: S.biens.length
+  });
+  saveAll();
+  navigateTo('bien', id);
+}
+
+/* deleteBien */
+function deleteBien(bid) {
+  if (!confirm('Supprimer ce bien définitivement ?\n\nToutes les données (loyers, travaux, documents) seront perdues.')) return;
+  for (var i = 0; i < S.biens.length; i++) {
+    if (S.biens[i].id === bid) { S.biens.splice(i, 1); break; }
+  }
+  if (typeof Analytics !== 'undefined') Analytics.track('bien.deleted', { total: S.biens.length });
+  saveAll();
+  navigateTo('biens');
+}
+
+/* Helpers conservés de la v2.9 */
+function updBien(id, key, val) {
+  var b = getBien(id);
+  if (!b) return;
+  b[key] = nv(val);
+  saveAll();
+}
+
+function updBienStr(id, key, val) {
+  var b = getBien(id);
+  if (!b) return;
+  b[key] = val;
+  saveAll();
+  if (key === 'statut' || key === 'structureAchat') {
+    // Refresh tabs si nécessaire
+    if (CURRENT_BIEN_ID === id) {
+      setHTML('fiche-bien-header', renderFicheHeader(b));
+      setHTML('fiche-bien-tabs', renderFicheTabs(b));
+    }
+  }
+}
+
+function updBienNom(id, val) {
+  var b = getBien(id);
+  if (!b) return;
+  b.nom = val;
+  saveAll();
+}
+
+function updBienGeneral(id, key, val) {
+  var b = getBien(id);
+  if (!b) return;
+  b[key] = nv(val);
+  saveAll();
+}
+
+function updBienGeneralStr(id, key, val) {
+  var b = getBien(id);
+  if (!b) return;
+  b[key] = val;
+  saveAll();
+}
+
+function updBienLoyer(id, val) {
+  var b = getBien(id);
+  if (!b) return;
+  b.loyer = nv(val);
+  initLoyers(b);
+  saveAll();
+}
+
+function updBienCharge(id, key, val) {
+  var b = getBien(id);
+  if (!b) return;
+  if (key === 'gestionPct') {
+    b.gestionPct = nv(val);
+    if (b.gestionPct > 0) b.gest = b.loyer * b.gestionPct / 100;
+    var gestEl = gid('chg-gest-' + id);
+    if (gestEl) { gestEl.value = b.gest.toFixed(2); gestEl.disabled = b.gestionPct > 0; }
+  } else {
+    b[key] = nv(val);
+    if (key === 'tf' || key === 'pno' || key === 'copro' || key === 'gest') {}
+  }
+  saveAll();
+}
+
+function toggleDashVisible(id) {
+  var b = getBien(id);
+  if (!b) return;
+  b.dashVisible = !b.dashVisible;
+  saveAll();
+}
+
+function resetUI() {
+  // Dans la nouvelle architecture, on recalcule juste le dashboard
+  renderDashboard();
+  navigateTo('dashboard');
+}
+
+/* ── INIT APPLICATION ── */
+// Détecte mobile et applique une classe sur <body> (indépendant des media queries)
+function applyMobileClass() {
+  var w = window.innerWidth || document.documentElement.clientWidth || 0;
+  var isMobile = w > 0 && w <= 768;
+  if (document.body) {
+    if (isMobile) { document.body.classList.add('is-mobile'); }
+    else { document.body.classList.remove('is-mobile'); }
+  }
+  // Re-render la page biens si on bascule
+  if (typeof CURRENT_PAGE !== 'undefined' && CURRENT_PAGE === 'biens' && typeof renderBiens === 'function') {
+    renderBiens();
+  }
+}
+
+window.onload = function() {
+  // Détection mobile JS — applique les styles même si les media queries
+  // ne sont pas évaluées (ex: viewers, webviews, iframes)
+  applyMobileClass();
+  window.addEventListener('resize', applyMobileClass);
+  window.addEventListener('orientationchange', applyMobileClass);
+
+  // Thème
+  initTheme();
+
+  // Init Supabase si config disponible
+  if (typeof initSupabase === 'function' && initSupabase()) {
+    if (typeof checkSupabaseSession === 'function') checkSupabaseSession();
+  }
+
+  // v0.95 : Analytics — démarrer après Supabase (pour avoir le user_id si connecté)
+  if (typeof initAnalytics === 'function') initAnalytics({ enabled: true });
+
+  // Charger les données
+  loadAll();
+  if (!S.biens.length) loadExemple();
+
+  // Init UI
+  initUI();
+
+  // Vérifier si onboarding nécessaire
+  if (!checkOnboarding()) {
+    navigateTo('dashboard');
+  } else {
+    // Onboarding affiché — ne pas naviguer vers le dashboard encore
+    navigateTo('dashboard');
+  }
+
+  // Salutation
+  var greet = gid('dash-greeting');
+  if (greet) {
+    var h = new Date().getHours();
+    var salut = h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+    greet.textContent = salut + ' 👋';
+  }
+
+  // Dashboard dans sidebar (mini aperçu biens)
+  renderDashBiensApercu();
+
+  // Auto-save
+  setInterval(saveAll, 30000);
+
+  // Re-render la page courante si la taille change (rotation iPhone)
+  var _resizeTimer = null;
+  window.addEventListener('resize', function() {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(function() {
+      if (CURRENT_PAGE === 'biens') renderBiens();
+    }, 200);
+  });
+};
+
+function renderDashBiensApercu() {
+  // Petit aperçu dans le dashboard table
+  var biens = S.biens.slice(0, 5);
+  if (!biens.length) { setHTML('dash-biens-table', '<div class="empty-state" style="padding:24px"><div class="empty-desc">Aucun bien. <a href="#" onclick="navigateTo(\'add\')">Ajouter un bien →</a></div></div>'); return; }
+
+  var html = '<table class="data-table"><thead><tr><th>Bien</th><th>Type</th><th>Statut</th><th class="col-number">Valeur</th><th class="col-number">CF/mois</th></tr></thead><tbody>';
+  for (var i = 0; i < biens.length; i++) {
+    var b = biens[i];
+    var cf = b.type === 'loc' ? calcCFApresImpot(b) : null;
+    html += '<tr onclick="navigateTo(\'bien\',\'' + b.id + '\')">' +
+      '<td class="font-medium">' + b.nom + '</td>' +
+      '<td>' + badgeType(b.type) + '</td>' +
+      '<td>' + badgeStatut(b.statut) + '</td>' +
+      '<td class="col-number font-mono">' + fmtEuro(b.valeur) + '</td>' +
+      '<td class="col-number font-mono" style="color:' + (cf === null ? 'inherit' : cf >= 0 ? 'var(--color-green)' : 'var(--color-red)') + '">' + (cf !== null ? fmtEuro(cf) : '—') + '</td>' +
+      '</tr>';
+  }
+  html += '</tbody></table>';
+  if (S.biens.length > 5) html += '<div class="card-footer text-xs text-secondary" style="text-align:center"><a href="#" onclick="navigateTo(\'biens\')">Voir tous les ' + S.biens.length + ' biens →</a></div>';
+  setHTML('dash-biens-table', html);
+}
+</script>
+
+<div style="position:fixed;bottom:0;left:0;right:0;text-align:center;
+  font-size:11px;color:#888;background:rgba(255,255,255,.85);
+  padding:4px;padding-bottom:calc(4px + env(safe-area-inset-bottom,0px));
+  z-index:9999;pointer-events:none;font-family:system-ui,-apple-system,sans-serif">
+  Build mobile test Netlify v1
+</div>
+</body>
+</html>
