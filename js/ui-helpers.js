@@ -281,7 +281,7 @@ function initLoyers(montant){
     var mo = String(d.getMonth()+1);
     if(mo.length < 2) mo = '0' + mo;
     var key = d.getFullYear() + '-' + mo;
-    rows.push({ mois: key, prevu: montant, encaisse: null, statut: 'nd', datePaiement: '' });
+    rows.push({ mois: key, prevu: montant, encaisse: null, statut: 'nd' });
   }
   return rows;
 }
@@ -984,12 +984,10 @@ function renderLoyers(b){
       var dClass = delta === null ? '' : (delta >= 0 ? 'up' : 'dn');
       var dTxt = delta === null ? '\u2014' : (delta >= 0 ? '+' : '') + Math.round(delta) + ' \u20ac';
       var valStr = l.encaisse !== null ? l.encaisse : '';
-      var datePay = l.datePaiement || '';
       html += '<div class="lrow">';
       html += '<span class="lmois">' + moisLbl(l.mois) + '</span>';
       html += '<div class="linput"><input type="number" value="' + valStr + '" placeholder="' + l.prevu + '" oninput="updLoyer(\'' + b.id + '\',' + idx + ',this.value)"></div>';
-      html += '<button class="lstatus ' + sc + '" style="border:none;cursor:pointer" onclick="toggleLoyerPaye(\'' + b.id + '\',' + idx + ')" title="Payé / non payé">' + si + '</button>';
-      html += '<div class="linput"><input type="date" value="' + datePay + '" onchange="updDatePaiement(\'' + b.id + '\',' + idx + ',this.value)" title="Date de paiement"></div>';
+      html += '<div class="lstatus ' + sc + '" onclick="cycleLoyer(\'' + b.id + '\',' + idx + ')">' + si + '</div>';
       html += '<div class="ldelta ' + dClass + '">' + dTxt + '</div>';
       html += '</div>';
     }
@@ -1032,42 +1030,6 @@ function updLoyer(bid, idx, val){
   if(recap) recap.textContent = nbTotal + ' mois \u00b7 Encaiss\u00e9 : ' + fmt(encTotal) + ' \u00b7 Pr\u00e9vu : ' + fmt(prevTotal);
 }
 
-function toggleLoyerPaye(bid, idx){
-  var b = getBien(bid);
-  if(!b) return;
-  var l = b.loyers[idx];
-  if(!l) return;
-  if(l.statut === 'ok'){
-    l.statut = 'nd';
-    l.encaisse = null;
-    l.datePaiement = '';
-  } else {
-    l.statut = 'ok';
-    l.encaisse = nv(l.prevu || b.loyer);
-    if(!l.datePaiement){
-      var d = new Date();
-      var mo = String(d.getMonth()+1); if(mo.length<2) mo='0'+mo;
-      var da = String(d.getDate()); if(da.length<2) da='0'+da;
-      l.datePaiement = d.getFullYear() + '-' + mo + '-' + da;
-    }
-  }
-  renderLoyers(b);
-  saveAll();
-}
-
-function updDatePaiement(bid, idx, val){
-  var b = getBien(bid);
-  if(!b) return;
-  var l = b.loyers[idx];
-  if(!l) return;
-  l.datePaiement = val || '';
-  if(val && l.statut !== 'ok'){
-    l.statut = 'ok';
-    if(l.encaisse === null) l.encaisse = nv(l.prevu || b.loyer);
-  }
-  saveAll();
-}
-
 function cycleLoyer(bid, idx){
   var b = getBien(bid);
   if(!b) return;
@@ -1103,7 +1065,7 @@ function addMois(bid){
     var mo = String(d.getMonth()+1); if(mo.length<2) mo='0'+mo;
     var key = d.getFullYear() + '-' + mo;
     if(!existing[key]){
-      b.loyers.push({mois:key, prevu:b.loyer, encaisse:null, statut:'nd', datePaiement:''});
+      b.loyers.push({mois:key, prevu:b.loyer, encaisse:null, statut:'nd'});
       b.loyers.sort(function(a,z){ return a.mois < z.mois ? -1 : 1; });
       renderLoyers(b); // préserve les blocs ouverts grâce à getOpenYears/restoreOpenYears
       saveAll();
@@ -1125,7 +1087,7 @@ function autoGenererMoisAnnee(b){
     var mo = String(m+1); if(mo.length<2) mo='0'+mo;
     var key = year + '-' + mo;
     if(!existing[key]){
-      b.loyers.push({mois:key, prevu:b.loyer, encaisse:null, statut:'nd', datePaiement:''});
+      b.loyers.push({mois:key, prevu:b.loyer, encaisse:null, statut:'nd'});
       added = true;
     }
   }
@@ -2251,41 +2213,39 @@ function snapshotPatrimoine(){
 }
 
 function saveAll(){
-  // Sauvegarde locale prioritaire. Le cloud est optionnel et ne doit jamais empêcher
-  // l'enregistrement local, sinon un bien disparaît au rechargement.
-  try { snapshotPatrimoine(); } catch(e) {}
+  // v2.8 : snapshot mensuel automatique avant sauvegarde
+  snapshotPatrimoine();
   S._v = DATA_VERSION;
   var ok = STORE.save(STORE_KEY, S);
   if(ok){
     var lbl=gid('data-version-lbl');
-    if(lbl) lbl.textContent='SUIVI · RENDEMENT · v'+DATA_VERSION+' · '+S.biens.length+' bien(s)';
-    try {
-      if (typeof syncCloudSilencieux === 'function') syncCloudSilencieux();
-    } catch(e) { /* le cloud ne doit jamais bloquer la sauvegarde locale */ }
-    return true;
+    if(lbl) lbl.textContent='SUIVI \u00b7 RENDEMENT \u00b7 v'+DATA_VERSION+' \u00b7 '+S.biens.length+' bien(s)';
+    // v3.0 : sync cloud silencieuse après sauvegarde locale
+    syncCloudSilencieux();
   } else {
     if(!window._storeWarned){
       window._storeWarned = true;
-      alert('Attention : la sauvegarde automatique ne fonctionne pas (navigation privée ou stockage plein). Pensez à exporter un Backup JSON régulièrement.');
+      alert('Attention : la sauvegarde automatique ne fonctionne pas (navigation priv\u00e9e ou stockage plein). Pensez \u00e0 exporter un Backup JSON r\u00e9guli\u00e8rement.');
     }
-    return false;
   }
 }
 
 function loadAll(){
   try{
     var data = STORE.load(STORE_KEY);
-    if(!data || !data.biens) return;
-
-    // Patch stabilité v3 : loadAll ne doit charger QUE les données.
-    // L'ancien code reconstruisait aussi des pages héritées (#bien-pages/#mainnav),
-    // absentes dans la nouvelle interface. Cela faisait planter le chargement au milieu
-    // et seuls les premiers biens apparaissaient après rafraîchissement.
-    var loadedBiens = [];
+    if(!data || !data.biens || !Array.isArray(data.biens)) {
+      return false;
+    }
 
     if(data._v && data._v > DATA_VERSION){
-      alert('Attention : les donn\u00e9es sauvegard\u00e9es sont plus r\u00e9centes que cette version de l\'application (v'+data._v+' > v'+DATA_VERSION+'). Veuillez utiliser la derni\u00e8re version du fichier HTML.');
+      alert('Attention : les données sauvegardées sont plus récentes que cette version de l\'application (v'+data._v+' > v'+DATA_VERSION+'). Veuillez utiliser la dernière version du fichier HTML.');
     }
+
+    // IMPORTANT : nouvelle interface PatriFlow
+    // On recharge uniquement l'état S.
+    // On ne reconstruit plus les anciennes pages dynamiques (#mainnav / #bien-pages),
+    // car ces éléments n'existent plus dans l'interface actuelle et interrompaient le chargement.
+    S.biens = [];
 
     if(data.config){
       S.config.revenusMensuels    = nv(data.config.revenusMensuels);
@@ -2296,21 +2256,26 @@ function loadAll(){
       S.config.fraisDossierDefaut = nv(data.config.fraisDossierDefaut) || 1500;
     }
 
+    S.historiquePatrimoine = data.historiquePatrimoine || [];
+
     for(var i=0; i<data.biens.length; i++){
       var b = normalizeBien(data.biens[i]);
       autoGenererMoisAnnee(b);
-      loadedBiens.push(b);
+      S.biens.push(b);
     }
 
-    S.biens = loadedBiens;
-    S.historiquePatrimoine = data.historiquePatrimoine || [];
-    S._v = DATA_VERSION;
-
     loadConfig();
-    // Ne pas appeler addNavTab(), buildBienPage(), renderLoyers(), renderTravaux() ici.
-    // La nouvelle interface est rendue ensuite par initUI()/navigateTo().
+
+    // Rafraîchissement compatible nouvelle interface
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderBiens === 'function' && typeof CURRENT_PAGE !== 'undefined' && CURRENT_PAGE === 'biens') renderBiens();
+    if (typeof renderDashBiensApercu === 'function') renderDashBiensApercu();
+    if (typeof renderSidebarAlertes === 'function') renderSidebarAlertes();
+
+    return true;
   } catch(e) {
-    console.error('Erreur loadAll()', e);
+    console.error('loadAll erreur :', e);
+    return false;
   }
 }
 
@@ -2353,27 +2318,30 @@ function importData(event){
       return;
     }
 
-    // Compatibilité : backup direct {biens:[]} ou export Supabase {data:{biens:[]}}
-    if(data && data.data && data.data.biens) data = data.data;
-
+    // Validation minimale de structure
     if(!data || typeof data !== 'object' || !data.biens || !data.biens.length){
-      alert('Fichier invalide : structure de données non reconnue. Le fichier doit contenir un champ "biens".');
+      alert('Fichier invalide : structure de donn\u00e9es non reconnue (champ "biens" manquant ou vide).');
       event.target.value = '';
       return;
     }
 
+    // Avertissement version future
     if(data._v && data._v > DATA_VERSION){
-      var proceedFuture = confirm('Ce fichier provient d\'une version plus récente (v'+data._v+' > v'+DATA_VERSION+').\nL\'import peut perdre des informations propres à cette version future.\n\nContinuer quand même ?');
+      var proceedFuture = confirm('Ce fichier provient d\'une version plus r\u00e9cente (v'+data._v+' > v'+DATA_VERSION+').\nL\'import peut perdre des informations propres \u00e0 cette version future.\n\nContinuer quand m\u00eame ?');
       if(!proceedFuture){ event.target.value=''; return; }
     }
 
-    var nbActuels = S && S.biens ? S.biens.length : 0;
+    // Confirmation destructive
+    var nbActuels = S.biens.length;
     var nbNouveaux = data.biens.length;
-    var msg = 'Importer ce fichier remplacera TOUTES les données actuelles ('+nbActuels+' bien(s)) par celles du fichier ('+nbNouveaux+' bien(s)).\n\nCette action est irréversible (sauf si vous avez un autre backup).\n\nContinuer ?';
+    var msg = 'Importer ce fichier remplacera TOUTES les donn\u00e9es actuelles ('+nbActuels+' bien(s)) par celles du fichier ('+nbNouveaux+' bien(s)).\n\nCette action est irr\u00e9versible (sauf si vous avez un autre backup).\n\nContinuer ?';
     if(!confirm(msg)){ event.target.value=''; return; }
 
-    // Construction d'un état propre, sans dépendre du rendu de la page actuelle.
-    var newState = {
+    // --- Remplacement de l'état ---
+    resetUI();
+
+    // Réinitialiser S avec les valeurs par défaut, puis fusionner config
+    S = {
       biens: [],
       config: {
         revenusMensuels:    0,
@@ -2383,38 +2351,40 @@ function importData(event){
         tauxNotaireDefaut:  8,
         fraisDossierDefaut: 1500
       },
-      historiquePatrimoine: data.historiquePatrimoine || [],
       _v: DATA_VERSION
     };
 
     if(data.config){
-      newState.config.revenusMensuels    = nv(data.config.revenusMensuels);
-      newState.config.tauxEndettementMax = nv(data.config.tauxEndettementMax) || 35;
-      newState.config.loyersPrisEnCompte = nv(data.config.loyersPrisEnCompte) || 70;
-      newState.config.margeSecurite      = nv(data.config.margeSecurite)      || 10;
-      newState.config.tauxNotaireDefaut  = nv(data.config.tauxNotaireDefaut)  || 8;
-      newState.config.fraisDossierDefaut = nv(data.config.fraisDossierDefaut) || 1500;
+      S.config.revenusMensuels    = nv(data.config.revenusMensuels);
+      S.config.tauxEndettementMax = nv(data.config.tauxEndettementMax) || 35;
+      S.config.loyersPrisEnCompte = nv(data.config.loyersPrisEnCompte) || 70;
+      S.config.margeSecurite      = nv(data.config.margeSecurite)      || 10;
+      S.config.tauxNotaireDefaut  = nv(data.config.tauxNotaireDefaut)  || 8;
+      S.config.fraisDossierDefaut = nv(data.config.fraisDossierDefaut) || 1500;
     }
+    // v2.8 : restaurer l'historique patrimoine depuis le backup
+    S.historiquePatrimoine = data.historiquePatrimoine || [];
 
+    // normalizeBien sur chaque bien importé (migration de schema)
+    // IMPORTANT : nouvelle interface PatriFlow
+    // Ne plus appeler addNavTab/buildBienPage/renderLoyers/renderTravaux ici :
+    // ces fonctions appartiennent à l'ancienne interface et peuvent interrompre l'import.
     for(var i=0; i<data.biens.length; i++){
       var b = normalizeBien(data.biens[i]);
       autoGenererMoisAnnee(b);
-      newState.biens.push(b);
+      S.biens.push(b);
     }
 
-    // Sauvegarde directe dans localStorage AVANT tout rendu.
-    // Cela évite les bugs où l'écran reste sur l'ancien état après import.
-    var ok = STORE.save(STORE_KEY, newState);
-    if(!ok){
-      alert('Import impossible : le stockage local du navigateur est bloqué ou plein. Essayez hors navigation privée, ou videz le cache du site.');
-      event.target.value = '';
-      return;
-    }
+    loadConfig();
+    saveAll();
 
-    S = newState;
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderBiens === 'function') renderBiens();
+    if (typeof renderDashBiensApercu === 'function') renderDashBiensApercu();
+    if (typeof renderSidebarAlertes === 'function') renderSidebarAlertes();
+
+    alert('Import réussi : '+nbNouveaux+' bien(s) chargé(s).');
     event.target.value = '';
-    alert('Import réussi : '+nbNouveaux+' bien(s) chargés. La page va se recharger pour appliquer les données.');
-    window.location.reload();
   };
   reader.onerror = function(){
     alert('Erreur de lecture du fichier.');
@@ -2635,7 +2605,7 @@ function loadExemple(){
       var mo=String(d.getMonth()+1); if(mo.length<2) mo='0'+mo;
       var key=d.getFullYear()+'-'+mo;
       var ok=i>1;
-      rows.push({mois:key,prevu:loyer,encaisse:ok?loyer:null,statut:ok?'ok':'nd',datePaiement:ok?key+'-05':''});
+      rows.push({mois:key,prevu:loyer,encaisse:ok?loyer:null,statut:ok?'ok':'nd'});
     }
     return rows;
   }
