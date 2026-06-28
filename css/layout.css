@@ -35,7 +35,7 @@
 
 /* ── APP SHELL ─────────────────────────────────────────── */
 .app-shell {
-  display: flex;
+  display: block;
   min-height: 100vh;
 }
 
@@ -234,7 +234,6 @@
 
 /* ── MAIN AREA ─────────────────────────────────────────── */
 .main {
-  flex: 1;
   margin-left: var(--sidebar-width);
   min-height: 100vh;
   display: flex;
@@ -439,385 +438,87 @@
 .sidebar-alert-date { color: inherit; opacity: .7; }
 
 /* ── RESPONSIVE ────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE MOBILE — iPhone 375/390/393/402/430px
+   Double déclenchement : @media ET body.is-mobile (JS)
+   pour fonctionner dans tous les environnements.
+   ═══════════════════════════════════════════════════════════ */
+
 @media (max-width: 1024px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* ── MOBILE — iPhone 375/390/393/402/430px ─────────────── */
+/* Règles mobiles : @media classique */
 @media (max-width: 768px) {
-
-  /* Base : aucun scroll horizontal possible */
-  html, body {
-    overflow-x: hidden !important;
-    width: 100%;
-    max-width: 100vw;
-    -webkit-text-size-adjust: 100%;
-  }
-
-  .app-shell { width: 100%; max-width: 100vw; overflow-x: hidden; }
-
-  /* Sidebar : drawer fermé par défaut, JAMAIS dans le flux */
-  .sidebar {
-    transform: translateX(-100%);
-    z-index: 100;
-    width: 82vw;
-    max-width: 300px;
-  }
+  html, body { overflow-x: hidden; max-width: 100vw; -webkit-text-size-adjust: 100%; }
+  .sidebar { transform: translateX(-100%); z-index: 100; width: 82vw; max-width: 300px; }
   .sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,.3); }
-
-  /* Main : pleine largeur, aucune marge gauche */
-  .main {
-    margin-left: 0 !important;
-    width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden;
-  }
-
-  /* Headers */
-  .header { display: none !important; }
-  .mobile-header { display: flex !important; }
-
-  /* Overlay drawer */
-  .mobile-overlay { z-index: 99; }
-
-  /* Contenu : padding maîtrisé, jamais de débordement */
-  .content {
-    padding: var(--space-3);
-    padding-bottom: calc(var(--space-6) + var(--safe-bottom));
-    width: 100%;
-    max-width: 100vw;
-    box-sizing: border-box;
-    overflow-x: hidden;
-  }
-
-  /* CRITIQUE : neutraliser tous les min-width inline qui cassent le mobile */
-  .dash-row { flex-direction: column !important; gap: var(--space-3) !important; }
-  .dash-card-graph,
-  .dash-card-events,
-  .card[style*="min-width"],
-  .card[style*="flex:0 0"] {
-    min-width: 0 !important;
-    width: 100% !important;
-    flex: 1 1 100% !important;
-  }
-
-  /* Toutes les rangées flex passent en colonne */
-  .content .flex[style*="flex-wrap"] {
-    flex-direction: column !important;
-  }
-  .content .flex[style*="min-width"] > *,
-  .content .card[style*="min-width"] {
-    min-width: 0 !important;
-    width: 100% !important;
-  }
-
-  /* Page header empilé */
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-2);
-    margin-bottom: var(--space-4);
-  }
-  .page-title { font-size: var(--text-xl); }
-  .page-subtitle { font-size: var(--text-sm); }
-  .page-actions { width: 100%; flex-direction: column; }
+  .main { margin-left: 0; width: 100%; max-width: 100vw; overflow-x: hidden; }
+  .header { display: none; }
+  .mobile-header { display: flex; }
+  .content { padding: var(--space-3); padding-bottom: calc(var(--space-6) + var(--safe-bottom)); width: 100%; max-width: 100vw; box-sizing: border-box; overflow-x: hidden; }
+  .dash-row { flex-direction: column; }
+  .dash-card-graph, .dash-card-events { min-width: 0; width: 100%; flex: 1 1 100%; }
+  .page-header { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+  .page-actions { width: 100%; }
   .page-actions .btn { width: 100%; justify-content: center; }
-
-  /* KPI : 2 colonnes */
-  .kpi-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-2);
-    margin-bottom: var(--space-4);
-  }
-  .kpi-card { padding: var(--space-3); min-width: 0; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: var(--space-2); }
   .kpi-value { font-size: var(--text-lg); word-break: break-word; }
-  .kpi-label { font-size: 10px; }
-
-  /* Formulaires : 1 colonne */
   .form-row, .form-row-3 { grid-template-columns: 1fr; }
-
-  /* Tables → cartes empilées */
   .data-table thead { display: none; }
   .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
-  .data-table tr {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-2);
-    padding: var(--space-3);
-    box-sizing: border-box;
-  }
-  .data-table td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px 0;
-    border: none;
-    text-align: right;
-  }
-  .data-table td::before {
-    content: attr(data-label);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    margin-right: var(--space-2);
-    text-align: left;
-  }
+  .data-table tr { border: 1px solid var(--color-border); border-radius: var(--radius-md); margin-bottom: var(--space-2); padding: var(--space-3); box-sizing: border-box; }
+  .data-table td { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border: none; text-align: right; }
+  .data-table td::before { content: attr(data-label); font-size: var(--text-xs); color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; margin-right: var(--space-2); text-align: left; }
   .table-wrapper { border: none; overflow-x: visible; }
-
-  /* Tabs scrollables horizontalement (seul scroll horizontal autorisé) */
-  .tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    flex-wrap: nowrap;
-  }
-  .tab-item { white-space: nowrap; flex-shrink: 0; padding: 10px 12px; font-size: var(--text-xs); }
-
-  /* Cards compactes */
-  .card-body { padding: var(--space-4); }
-  .card-body-sm { padding: var(--space-3); }
-  .card-header { padding: var(--space-3) var(--space-4); }
-
-  /* Modal plein écran bas */
-  .modal {
-    max-width: 100%;
-    width: 100%;
-    margin: 0;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    max-height: 92vh;
-    padding-bottom: var(--safe-bottom);
-  }
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+  .tab-item { white-space: nowrap; flex-shrink: 0; }
+  .modal { max-width: 100%; width: 100%; margin: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; max-height: 92vh; }
   .modal-overlay { align-items: flex-end; padding: 0; }
-
-  /* Boutons tactiles 44px (Apple HIG) */
   .btn { min-height: 44px; }
-  .btn-sm { min-height: 38px; }
   .btn-icon { min-height: 44px; min-width: 44px; }
-
-  /* Masquer alertes sidebar sur mobile */
   .sidebar-alerts { display: none; }
-
-  /* Graphique SVG : jamais plus large que l'écran */
   #dash-graph svg, .card svg { max-width: 100%; height: auto; }
 }
 
-/* ── MOBILE via classe JS (fallback si media queries non évaluées) ── */
-
-  /* Base : aucun scroll horizontal possible */
-  body.is-mobile, body.is-mobile {
-    overflow-x: hidden !important;
-    width: 100%;
-    max-width: 100vw;
-    -webkit-text-size-adjust: 100%;
-  }
-
-  .app-shell { width: 100%; max-width: 100vw; overflow-x: hidden; }
-
-  /* Sidebar : drawer fermé par défaut, JAMAIS dans le flux */
-  body.is-mobile .sidebar {
-    transform: translateX(-100%);
-    z-index: 100;
-    width: 82vw;
-    max-width: 300px;
-  }
-  .sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,.3); }
-
-  /* Main : pleine largeur, aucune marge gauche */
-  body.is-mobile .main {
-    margin-left: 0 !important;
-    width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden;
-  }
-
-  /* Headers */
-  .header { display: none !important; }
-  .mobile-header { display: flex !important; }
-
-  /* Overlay drawer */
-  .mobile-overlay { z-index: 99; }
-
-  /* Contenu : padding maîtrisé, jamais de débordement */
-  body.is-mobile .content {
-    padding: var(--space-3);
-    padding-bottom: calc(var(--space-6) + var(--safe-bottom));
-    width: 100%;
-    max-width: 100vw;
-    box-sizing: border-box;
-    overflow-x: hidden;
-  }
-
-  /* CRITIQUE : neutraliser tous les min-width inline qui cassent le mobile */
-  .dash-row { flex-direction: column !important; gap: var(--space-3) !important; }
-  .dash-card-graph,
-  .dash-card-events,
-  .card[style*="min-width"],
-  body.is-mobile .card[style*="flex:0 0"] {
-    min-width: 0 !important;
-    width: 100% !important;
-    flex: 1 1 100% !important;
-  }
-
-  /* Toutes les rangées flex passent en colonne */
-  body.is-mobile .content .flex[style*="flex-wrap"] {
-    flex-direction: column !important;
-  }
-  .content .flex[style*="min-width"] > *,
-  body.is-mobile .content .card[style*="min-width"] {
-    min-width: 0 !important;
-    width: 100% !important;
-  }
-
-  /* Page header empilé */
-  body.is-mobile .page-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-2);
-    margin-bottom: var(--space-4);
-  }
-  .page-title { font-size: var(--text-xl); }
-  .page-subtitle { font-size: var(--text-sm); }
-  .page-actions { width: 100%; flex-direction: column; }
-  .page-actions .btn { width: 100%; justify-content: center; }
-
-  /* KPI : 2 colonnes */
-  body.is-mobile .kpi-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-2);
-    margin-bottom: var(--space-4);
-  }
-  .kpi-card { padding: var(--space-3); min-width: 0; }
-  .kpi-value { font-size: var(--text-lg); word-break: break-word; }
-  .kpi-label { font-size: 10px; }
-
-  /* Formulaires : 1 colonne */
-  .form-row, .form-row-3 { grid-template-columns: 1fr; }
-
-  /* Tables → cartes empilées */
-  .data-table thead { display: none; }
-  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
-  body.is-mobile .data-table tr {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-2);
-    padding: var(--space-3);
-    box-sizing: border-box;
-  }
-  body.is-mobile .data-table td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px 0;
-    border: none;
-    text-align: right;
-  }
-  body.is-mobile .data-table td::before {
-    content: attr(data-label);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    margin-right: var(--space-2);
-    text-align: left;
-  }
-  .table-wrapper { border: none; overflow-x: visible; }
-
-  /* Tabs scrollables horizontalement (seul scroll horizontal autorisé) */
-  body.is-mobile .tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    flex-wrap: nowrap;
-  }
-  .tab-item { white-space: nowrap; flex-shrink: 0; padding: 10px 12px; font-size: var(--text-xs); }
-
-  /* Cards compactes */
-  .card-body { padding: var(--space-4); }
-  .card-body-sm { padding: var(--space-3); }
-  .card-header { padding: var(--space-3) var(--space-4); }
-
-  /* Modal plein écran bas */
-  body.is-mobile .modal {
-    max-width: 100%;
-    width: 100%;
-    margin: 0;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    max-height: 92vh;
-    padding-bottom: var(--safe-bottom);
-  }
-  .modal-overlay { align-items: flex-end; padding: 0; }
-
-  /* Boutons tactiles 44px (Apple HIG) */
-  .btn { min-height: 44px; }
-  .btn-sm { min-height: 38px; }
-  .btn-icon { min-height: 44px; min-width: 44px; }
-
-  /* Masquer alertes sidebar sur mobile */
-  .sidebar-alerts { display: none; }
-
-  /* Graphique SVG : jamais plus large que l'écran */
-  #dash-graph svg, .card svg { max-width: 100%; height: auto; }
-
-/* ── PETITS iPhone (375px SE / mini) ───────────────────── */
 @media (max-width: 390px) {
   .kpi-value { font-size: var(--text-base); }
   .content { padding: var(--space-2); }
 }
+
+/* Règles mobiles : classe JS body.is-mobile (fallback si @media non évalué) */
+body.is-mobile .sidebar { transform: translateX(-100%) !important; width: 82vw !important; max-width: 300px !important; z-index: 100 !important; }
+body.is-mobile .sidebar.open { transform: translateX(0) !important; }
+body.is-mobile .main { margin-left: 0 !important; width: 100% !important; max-width: 100vw !important; overflow-x: hidden !important; }
+body.is-mobile .header { display: none !important; }
+body.is-mobile .mobile-header { display: flex !important; }
+body.is-mobile .content { padding: 12px !important; width: 100% !important; max-width: 100vw !important; box-sizing: border-box !important; overflow-x: hidden !important; }
+body.is-mobile .dash-row { flex-direction: column !important; }
+body.is-mobile .dash-card-graph, body.is-mobile .dash-card-events { min-width: 0 !important; width: 100% !important; flex: 1 1 100% !important; }
+body.is-mobile .page-header { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+body.is-mobile .page-actions { width: 100% !important; }
+body.is-mobile .page-actions .btn { width: 100% !important; justify-content: center !important; }
+body.is-mobile .kpi-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+body.is-mobile .kpi-value { font-size: 18px !important; word-break: break-word !important; }
+body.is-mobile .form-row, body.is-mobile .form-row-3 { grid-template-columns: 1fr !important; }
+body.is-mobile .data-table thead { display: none !important; }
+body.is-mobile .data-table, body.is-mobile .data-table tbody, body.is-mobile .data-table tr, body.is-mobile .data-table td { display: block !important; width: 100% !important; }
+body.is-mobile .data-table tr { border: 1px solid var(--color-border) !important; border-radius: 10px !important; margin-bottom: 8px !important; padding: 12px !important; box-sizing: border-box !important; }
+body.is-mobile .data-table td { display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 5px 0 !important; border: none !important; text-align: right !important; }
+body.is-mobile .data-table td::before { content: attr(data-label); font-size: 11px; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; margin-right: 8px; text-align: left; }
+body.is-mobile .table-wrapper { border: none !important; overflow-x: visible !important; }
+body.is-mobile .tabs { overflow-x: auto !important; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
+body.is-mobile .tab-item { white-space: nowrap !important; flex-shrink: 0 !important; }
+body.is-mobile .modal { max-width: 100% !important; width: 100% !important; margin: 0 !important; border-radius: 16px 16px 0 0 !important; max-height: 92vh !important; }
+body.is-mobile .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+body.is-mobile .btn { min-height: 44px !important; }
+body.is-mobile .sidebar-alerts { display: none !important; }
+body.is-mobile #dash-graph svg, body.is-mobile .card svg { max-width: 100% !important; height: auto !important; }
 
 @media print {
   .sidebar, .header, .mobile-header, .btn, .sidebar-alerts { display: none !important; }
   .main { margin-left: 0; }
   .content { padding: 0; }
   .page-view { display: block !important; }
-}
-
-
-/* ═══════════════════════════════════════════════════════════
-   OVERRIDES CRITIQUES MOBILE — priorité maximale
-   Garantit l'affichage mobile même si les media queries
-   ne sont pas évaluées par le navigateur/viewer.
-   ═══════════════════════════════════════════════════════════ */
-body.is-mobile .sidebar {
-  transform: translateX(-100%) !important;
-  width: 82vw !important;
-  max-width: 300px !important;
-  z-index: 100 !important;
-}
-body.is-mobile .sidebar.open {
-  transform: translateX(0) !important;
-}
-body.is-mobile .main {
-  margin-left: 0 !important;
-  width: 100% !important;
-  max-width: 100vw !important;
-}
-body.is-mobile .header {
-  display: none !important;
-}
-body.is-mobile .mobile-header {
-  display: flex !important;
-}
-body.is-mobile .content {
-  width: 100% !important;
-  max-width: 100vw !important;
-  overflow-x: hidden !important;
-  box-sizing: border-box !important;
-}
-body.is-mobile .dash-row {
-  flex-direction: column !important;
-}
-body.is-mobile .dash-card-graph,
-body.is-mobile .dash-card-events,
-body.is-mobile .card[style*="min-width"],
-body.is-mobile .card[style*="flex:0 0"] {
-  min-width: 0 !important;
-  width: 100% !important;
-  flex: 1 1 100% !important;
-}
-body.is-mobile .kpi-grid {
-  grid-template-columns: 1fr 1fr !important;
-}
-body.is-mobile,
-body.is-mobile html {
-  overflow-x: hidden !important;
-  max-width: 100vw !important;
 }
