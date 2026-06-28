@@ -1008,7 +1008,6 @@ function renderLoyers2() {
   html += '<button class="btn btn-primary btn-sm" onclick="addMois(\'' + bsel.id + '\');renderLoyers2()">+ Mois</button>';
   html += '</div></div>';
   html += '<div class="card-body-sm">';
-  html += '<div class="alert alert-info mb-3" style="font-size:12px">Le bouton ✓ sur une ligne marque uniquement ce mois comme payé. Le montant et la date peuvent être ajustés.</div>';
   html += '<div id="lrows-' + bsel.id + '"></div>';
   html += '<div id="lrecap-' + bsel.id + '" class="text-xs text-secondary mt-2"></div>';
   html += '</div></div>';

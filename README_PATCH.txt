@@ -1,12 +1,12 @@
-Patch PatriFlow - Étape 1 calcul crédit + loyers lisibles
+Patch visuel loyers PatriFlow
 
 Fichiers à remplacer :
-- index.html
+- js/app.js
 - js/ui-helpers.js
 
 Contenu :
-- formulaire projet/crédit avec frais notaire, agence, courtier, travaux, apport, taux, durée, assurance ;
-- mensualité estimée automatique ;
-- suivi des loyers avec vrais boutons Payé / Non payé / À vérifier + date de paiement.
-
-Après remplacement : Commit puis Push via GitHub Desktop.
+- suppression de l'encart bleu sur la page Loyers ;
+- loyers regroupés par année ;
+- boutons Payé / Non payé / À vérifier conservés ;
+- date de paiement replacée sous le montant, plus lisible ;
+- aucune modification du moteur de sauvegarde.
