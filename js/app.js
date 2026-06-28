@@ -207,9 +207,6 @@ function renderDashboard() {
 
   setHTML('kpi-container', kpiHtml);
 
-  // Flux mensuels consolidés : locatif seul + impact RP
-  renderFluxMensuels(actifs, locs);
-
   // Alertes
   renderAlertesDash(actifs, locs);
 
@@ -218,10 +215,6 @@ function renderDashboard() {
 
   // Graphique patrimoine
   renderGraphiquePatrimoine();
-
-  // Patch stabilité : l'aperçu "Mes biens" du dashboard doit être reconstruit
-  // à chaque rendu, sinon un bien ajouté n'apparaît pas avant rechargement complet.
-  if (typeof renderDashBiensApercu === 'function') renderDashBiensApercu();
 }
 
 function kpiCard(label, value, valueClass, sub) {
@@ -229,87 +222,6 @@ function kpiCard(label, value, valueClass, sub) {
     '<div class="kpi-label">' + label + '</div>' +
     '<div class="kpi-value ' + (valueClass || '') + '">' + value + '</div>' +
     (sub ? '<div class="kpi-sub">' + sub + '</div>' : '') +
-    '</div>';
-}
-
-
-function renderFluxMensuels(actifs, locs) {
-  var kpi = gid('kpi-container');
-  if (!kpi || !kpi.parentNode) return;
-
-  var box = gid('dash-flux-mensuels');
-  if (!box) {
-    box = document.createElement('div');
-    box.id = 'dash-flux-mensuels';
-    box.className = 'card mb-6';
-    kpi.parentNode.insertBefore(box, kpi.nextSibling);
-  }
-
-  var entreesLoc = 0;
-  var sortiesLoc = 0;
-  var resultatLocAvantImpot = 0;
-  var impotLoc = 0;
-  var resultatLocApresImpot = 0;
-  var rpMensualites = 0;
-  var nbLoc = 0;
-  var nbRp = 0;
-
-  for (var i = 0; i < locs.length; i++) {
-    var b = locs[i];
-    nbLoc++;
-    var loyer = nv(b.loyer);
-    var credit = nv(b.mens) + nv(b.assur);
-    var charges = (nv(b.tf) / 12) + nv(b.pno) + nv(b.copro) + nv(b.gest) + nv(b.provisionTravaux);
-    var impot = typeof calcImpotMensuel === 'function' ? calcImpotMensuel(b) : 0;
-    var cfAvant = loyer - credit - charges;
-    var cfApres = cfAvant - impot;
-
-    entreesLoc += loyer;
-    sortiesLoc += credit + charges + impot;
-    resultatLocAvantImpot += cfAvant;
-    impotLoc += impot;
-    resultatLocApresImpot += cfApres;
-  }
-
-  for (var j = 0; j < actifs.length; j++) {
-    var a = actifs[j];
-    if (a.type === 'rp') {
-      nbRp++;
-      rpMensualites += nv(a.mens) + nv(a.assur);
-    }
-  }
-
-  var resultatApresRp = resultatLocApresImpot - rpMensualites;
-  var couvertureRp = rpMensualites > 0 ? Math.max(0, Math.min(100, (resultatLocApresImpot / rpMensualites) * 100)) : null;
-  var resteRp = rpMensualites - Math.max(0, resultatLocApresImpot);
-  if (resteRp < 0) resteRp = 0;
-
-  var statutParc = resultatLocApresImpot >= 0 ? 'Parc locatif positif' : 'Parc locatif négatif';
-  var statutCouleur = resultatLocApresImpot >= 0 ? 'var(--color-green)' : 'var(--color-red)';
-  var rpTxt = rpMensualites > 0
-    ? (resultatLocApresImpot >= rpMensualites
-        ? 'Le locatif couvre 100 % de la RP et laisse ' + fmtEuro(resultatLocApresImpot - rpMensualites) + '/mois.'
-        : 'Le locatif couvre ' + fmtPct(couvertureRp || 0, 0) + ' de la RP. Reste à financer : ' + fmtEuro(resteRp) + '/mois.')
-    : 'Aucune résidence principale active renseignée.';
-
-  box.innerHTML =
-    '<div class="card-header">' +
-      '<div>' +
-        '<div class="card-title">Flux mensuels consolidés</div>' +
-        '<div class="text-xs text-secondary">Locatif après charges et impôts, puis impact de la résidence principale.</div>' +
-      '</div>' +
-      '<div class="badge" style="background:' + (resultatLocApresImpot >= 0 ? 'var(--color-green-light)' : 'var(--color-red-light)') + ';color:' + statutCouleur + '">' + statutParc + '</div>' +
-    '</div>' +
-    '<div class="card-body-sm">' +
-      '<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:0">' +
-        kpiCard('Entrées locatives', fmtEuro(entreesLoc) + '/m', 'text-green', nbLoc + ' bien(s) locatif(s)') +
-        kpiCard('Sorties locatives', fmtEuro(sortiesLoc) + '/m', 'text-red', 'Crédits + charges + impôts') +
-        kpiCard('Résultat locatif', fmtEuro(resultatLocApresImpot) + '/m', resultatLocApresImpot >= 0 ? 'text-green' : 'text-red', 'Avant impôt : ' + fmtEuro(resultatLocAvantImpot) + ' · Impôt : ' + fmtEuro(impotLoc)) +
-        kpiCard('Après crédit RP', fmtEuro(resultatApresRp) + '/m', resultatApresRp >= 0 ? 'text-green' : 'text-red', 'RP : ' + fmtEuro(rpMensualites) + '/m') +
-      '</div>' +
-      '<div class="alert alert-info mt-4" style="align-items:center">' +
-        '<div><strong>Lecture rapide :</strong> ' + rpTxt + '</div>' +
-      '</div>' +
     '</div>';
 }
 
@@ -611,6 +523,7 @@ function renderFicheTabs(b) {
     { id: 'apercu',      label: 'Aperçu' },
     { id: 'financement', label: 'Financement' },
     { id: 'revenus',     label: 'Revenus & Charges', onlyLoc: true },
+    { id: 'fiscalite',   label: 'Fiscalité',          onlyLoc: true },
     { id: 'loyers',      label: 'Suivi loyers',      onlyLoc: true },
     { id: 'travaux',     label: 'Travaux' },
     { id: 'documents',   label: 'Documents' },
@@ -640,6 +553,7 @@ function switchFicheTab(tabId, b) {
     case 'apercu':      html = renderFicheApercu(b); break;
     case 'financement': html = renderFicheFinancement(b); break;
     case 'revenus':     html = renderFicheRevenus(b); break;
+    case 'fiscalite':   html = renderFicheFiscalite(b); break;
     case 'loyers':      html = renderFicheLoyers(b); break;
     case 'travaux':     html = renderFicheTravaux(b); break;
     case 'documents':   html = renderFicheDocuments(b); break;
@@ -651,7 +565,7 @@ function switchFicheTab(tabId, b) {
 
 function tabLabelById(id) {
   var map = { apercu:'Aperçu', financement:'Financement', revenus:'Revenus & Charges',
-    loyers:'Suivi loyers', travaux:'Travaux', documents:'Documents', parametres:'Paramètres' };
+    fiscalite:'Fiscalité', loyers:'Suivi loyers', travaux:'Travaux', documents:'Documents', parametres:'Paramètres' };
   return map[id] || id;
 }
 
@@ -856,6 +770,117 @@ function renderFicheRevenus(b) {
   html += '</div></div></div>';
 
   return html;
+}
+
+/* ── v0.97 : ONGLET FISCALITÉ — détail transparent des calculs ── */
+function renderFicheFiscalite(b) {
+  if (b.type !== 'loc') {
+    return '<div class="card"><div class="card-body"><p class="text-secondary">' +
+      'La fiscalité locative ne s\'applique pas à une résidence principale.</p></div></div>';
+  }
+
+  var d = calcImpotDetail(b);
+  var loyerAn = nv(b.loyer) * 12;
+  var chargesAn = chargesProprioAn(b);
+  var interetsAn = interetsAnneeCourante(b);
+  var assuranceAn = nv(b.assur) * 12;
+  var cfMois = calcCF(b);
+  var cfApresImpot = calcCFApresImpot(b);
+  var rBrut = rendementBrut(b);
+  var rNet = rendementNet(b);
+  var rNetNet = rendementNetNet(b);
+  var mensTotale = nv(b.mens) + nv(b.assur);
+
+  var h = '';
+
+  // ── Avertissement obligatoire ──
+  h += '<div class="alert alert-warning" style="margin-bottom:16px">' +
+    '<strong>⚠️ Estimations indicatives.</strong> Les calculs fiscaux ci-dessous sont des ' +
+    'simulations destinées à l\'aide à la lecture. Ils ne remplacent pas un expert-comptable, ' +
+    'un avocat fiscaliste ou un conseiller en gestion de patrimoine.</div>';
+
+  // ── Régime fiscal appliqué ──
+  h += '<div class="card" style="margin-bottom:16px"><div class="card-header">' +
+    '<div class="card-title">Régime fiscal appliqué</div></div><div class="card-body">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">';
+  h += '<div><div style="font-size:18px;font-weight:700">' + regimeLabel(b.regimeFiscal) + '</div>' +
+    '<div class="text-sm text-secondary">TMI ' + nv(b.tmi) + '% + prélèvements sociaux ' + PRELEV_SOCIAUX + '% = ' +
+    d.tauxGlobal + '% sur le revenu imposable</div></div>';
+  h += '</div></div></div>';
+
+  // ── Détail du calcul de l'impôt ──
+  h += '<div class="card" style="margin-bottom:16px"><div class="card-header">' +
+    '<div class="card-title">Détail du calcul de l\'impôt</div></div><div class="card-body">';
+  h += _calcLigne('Loyers annuels', fmtEuro(loyerAn), 'loyer mensuel (' + fmtEuro(b.loyer) + ') × 12');
+  h += _calcLigne('Revenu imposable (assiette)', fmtEuro(d.assietteAn), d.abattementTxt);
+  h += _calcLigne('Taux d\'imposition global', d.tauxGlobal + ' %', 'TMI ' + d.tmi + '% + prélèvements sociaux ' + PRELEV_SOCIAUX + '%');
+  h += '<div style="border-top:2px solid var(--color-border);margin-top:8px;padding-top:8px">';
+  h += _calcLigneTotal('Impôt estimatif annuel', fmtEuro(d.impotAn), 'assiette × taux global');
+  h += _calcLigneTotal('Impôt estimatif mensuel', fmtEuro(d.impotMens), 'impôt annuel / 12');
+  h += '</div>';
+  h += '</div></div>';
+
+  // ── Détail du cash-flow ──
+  h += '<div class="card" style="margin-bottom:16px"><div class="card-header">' +
+    '<div class="card-title">Détail du cash-flow mensuel</div></div><div class="card-body">';
+  h += _calcLigne('Loyer encaissé', '+ ' + fmtEuro(b.loyer), 'loyer mensuel HC');
+  h += _calcLigne('Mensualité crédit + assurance', '− ' + fmtEuro(mensTotale), 'crédit (' + fmtEuro(b.mens) + ') + assurance (' + fmtEuro(b.assur) + ')');
+  h += _calcLigne('Charges propriétaire', '− ' + fmtEuro(chargesAn / 12), 'TF + PNO + copro + gestion, mensualisées');
+  h += '<div style="border-top:1px solid var(--color-border);margin-top:6px;padding-top:6px">';
+  h += _calcLigneTotal('Cash-flow AVANT impôt', fmtEuro(cfMois), 'loyer − crédit − charges', cfMois >= 0);
+  h += '</div>';
+  h += _calcLigne('Impôt estimatif mensuel', '− ' + fmtEuro(d.impotMens), 'voir détail ci-dessus');
+  h += '<div style="border-top:2px solid var(--color-border);margin-top:6px;padding-top:6px">';
+  h += _calcLigneTotal('Cash-flow APRÈS impôt', fmtEuro(cfApresImpot), 'CF avant impôt − impôt', cfApresImpot >= 0);
+  h += '</div>';
+  h += '</div></div>';
+
+  // ── Rendements ──
+  h += '<div class="card" style="margin-bottom:16px"><div class="card-header">' +
+    '<div class="card-title">Rendements estimatifs</div></div><div class="card-body">';
+  h += _calcLigne('Coût d\'acquisition', fmtEuro(coutAcquisition(b)), 'prix + frais + travaux');
+  h += _calcLigne('Rendement brut', rBrut !== null ? fmtPct(rBrut) : '—', 'loyers annuels / coût d\'acquisition');
+  h += _calcLigne('Rendement net', rNet !== null ? fmtPct(rNet) : '—', '(loyers − charges propriétaire) / coût');
+  h += '<div style="border-top:1px solid var(--color-border);margin-top:6px;padding-top:6px">';
+  h += _calcLigneTotal('Rendement net-net (après impôt)', rNetNet !== null ? fmtPct(rNetNet) : '—', '(loyers − charges − impôt) / coût');
+  h += '</div>';
+  h += '</div></div>';
+
+  // ── Données prises en compte ──
+  h += '<div class="card"><div class="card-header"><div class="card-title">Données utilisées</div></div><div class="card-body">';
+  h += '<div class="text-sm text-secondary" style="line-height:1.9">';
+  h += 'Loyer mensuel : ' + fmtEuro(b.loyer) + ' · ';
+  h += 'Taxe foncière : ' + fmtEuro(b.tf) + '/an · ';
+  h += 'PNO : ' + fmtEuro(b.pno) + '/m · ';
+  h += 'Copropriété : ' + fmtEuro(b.copro) + '/m · ';
+  h += 'Gestion : ' + fmtEuro(b.gest) + '/m · ';
+  h += 'Intérêts d\'emprunt (année en cours) : ' + fmtEuro(interetsAn) + ' · ';
+  h += 'Assurance emprunteur : ' + fmtEuro(assuranceAn) + '/an';
+  h += '</div></div></div>';
+
+  return h;
+}
+
+// Ligne de calcul : libellé + valeur + formule en dessous
+function _calcLigne(label, valeur, formule) {
+  return '<div style="padding:6px 0">' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline">' +
+    '<span class="text-sm">' + label + '</span>' +
+    '<span class="font-mono font-medium">' + valeur + '</span></div>' +
+    (formule ? '<div style="font-size:11px;color:var(--color-text-muted);margin-top:2px">' + formule + '</div>' : '') +
+    '</div>';
+}
+
+// Ligne de total : plus visible, couleur optionnelle
+function _calcLigneTotal(label, valeur, formule, positif) {
+  var color = positif === undefined ? 'var(--color-text-primary)'
+    : (positif ? 'var(--color-green)' : 'var(--color-red)');
+  return '<div style="padding:6px 0">' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline">' +
+    '<span class="text-sm font-medium">' + label + '</span>' +
+    '<span class="font-mono" style="font-size:16px;font-weight:700;color:' + color + '">' + valeur + '</span></div>' +
+    (formule ? '<div style="font-size:11px;color:var(--color-text-muted);margin-top:2px">' + formule + '</div>' : '') +
+    '</div>';
 }
 
 /* Suivi loyers */
@@ -1068,35 +1093,32 @@ function renderCredits() {
 function renderLoyers2() {
   var locs = biensLocatifs(S.biens);
   if (!locs.length) {
-    setHTML('page-loyers-content', '<div class="empty-state"><div class="empty-icon">💶</div><div class="empty-title">Aucun bien locatif</div><div class="empty-desc">Ajoutez un bien de type locatif pour suivre les loyers.</div></div>');
+    setHTML('page-loyers-content', '<div class="empty-state"><div class="empty-icon">💶</div><div class="empty-title">Aucun bien locatif</div></div>');
     return;
   }
 
-  var selectedId = window.SELECTED_LOYER_BIEN_ID || locs[0].id;
-  var exists = false;
-  for (var i = 0; i < locs.length; i++) if (locs[i].id === selectedId) exists = true;
-  if (!exists) selectedId = locs[0].id;
-  window.SELECTED_LOYER_BIEN_ID = selectedId;
-
-  var bsel = getBien(selectedId) || locs[0];
-
-  var html = '<div class="card mb-4"><div class="card-header" style="align-items:flex-end;flex-wrap:wrap;gap:12px">';
-  html += '<div><div class="card-title">Suivi des loyers</div><div class="text-xs text-secondary">Sélectionnez un appartement, puis cochez les mois payés un par un.</div></div>';
-  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
-  html += '<select class="form-input" style="width:auto;min-width:240px" onchange="window.SELECTED_LOYER_BIEN_ID=this.value;renderLoyers2()">';
+  // Pour chaque bien locatif, afficher son suivi loyers
+  var html = '';
   for (var i = 0; i < locs.length; i++) {
     var b = locs[i];
-    html += '<option value="' + b.id + '"' + (b.id === selectedId ? ' selected' : '') + '>' + escapeHTML(b.nom) + '</option>';
+    html += '<div class="card mb-4">';
+    html += '<div class="card-header">';
+    html += '<div class="card-title">' + escapeHTML(b.nom) + '</div>';
+    html += '<div class="flex gap-2">';
+    html += '<button class="btn btn-secondary btn-sm" onclick="toutOk(\'' + b.id + '\')">✓ Tout encaissé</button>';
+    html += '<button class="btn btn-primary btn-sm" onclick="addMois(\'' + b.id + '\')">+ Mois</button>';
+    html += '</div></div>';
+    html += '<div class="card-body-sm">';
+    html += '<div id="lrows-' + b.id + '"></div>';
+    html += '<div id="lrecap-' + b.id + '" class="text-xs text-secondary mt-2"></div>';
+    html += '</div></div>';
   }
-  html += '</select>';
-  html += '<button class="btn btn-primary btn-sm" onclick="addMois(\'' + bsel.id + '\');renderLoyers2()">+ Mois</button>';
-  html += '</div></div>';
-  html += '<div class="card-body-sm">';
-  html += '<div id="lrows-' + bsel.id + '"></div>';
-  html += '<div id="lrecap-' + bsel.id + '" class="text-xs text-secondary mt-2"></div>';
-  html += '</div></div>';
   setHTML('page-loyers-content', html);
-  renderLoyers(bsel);
+
+  // Render loyers pour chaque bien
+  for (var i = 0; i < locs.length; i++) {
+    renderLoyers(locs[i]);
+  }
 }
 
 /* ── PAGE DOCUMENTS ──────────────────────────────────────── */
@@ -1463,136 +1485,4 @@ function updateSidebarUser() {
   if (dot) {
     dot.className = 'status-dot ' + (SUPA_USER ? 'connected' : '');
   }
-}
-
-
-/* ═══════════════════════════════════════════════════════════
-   PAT RIFLOW — CARTES FISCALES ANNUELLES
-   Ajoute des synthèses sans supprimer ni remplacer les cartes existantes.
-   ═══════════════════════════════════════════════════════════ */
-function pfAppEuro(v){ return typeof fmtEuro === 'function' ? fmtEuro(v) : Math.round(nv(v)).toLocaleString('fr-FR')+' €'; }
-function pfAppPct(v){ return typeof fmtPct === 'function' ? fmtPct(v) : (Math.round(v*10)/10).toString().replace('.', ',')+' %'; }
-
-function renderCarteFiscaleParcHTML(annee, compact){
-  if(typeof calcFiscalParcPro !== 'function') return '';
-  var rep = calcFiscalParcPro(annee || new Date().getFullYear(), {projection: compact === true});
-  var t = rep.total;
-  var html = '<div class="card mb-6" id="carte-fiscale-parc">';
-  html += '<div class="card-header"><div><div class="card-title">Aide déclaration fiscale — parc immobilier</div>';
-  html += '<div class="text-xs text-secondary">Année ' + rep.annee + ' · estimation structurée à vérifier avant déclaration</div></div>';
-  html += '<div style="display:flex;gap:8px;align-items:center"><select class="form-input" style="width:auto" onchange="renderFiscalYearChange(this.value)">';
-  var nowY = new Date().getFullYear();
-  for(var y=nowY-2; y<=nowY+1; y++) html += '<option value="'+y+'"'+(parseInt(rep.annee,10)===y?' selected':'')+'>'+y+'</option>';
-  html += '</select></div></div>';
-  html += '<div class="card-body">';
-  if(!rep.rows.length){
-    html += '<div class="empty-state" style="padding:16px"><div class="empty-title">Aucun bien locatif actif</div><div class="empty-desc">La carte fiscale se remplira avec vos biens locatifs.</div></div>';
-  } else {
-    html += '<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">';
-    html += kpiCard('Loyers encaissés', pfAppEuro(t.loyersEncaisses), '', 'Somme des loyers marqués avec montant encaissé');
-    html += kpiCard('Charges déductibles', pfAppEuro(t.chargesDeductibles), 'text-red', 'Selon régime réel uniquement');
-    html += kpiCard('Base imposable', pfAppEuro(t.baseImposable), '', 'Après abattement ou charges');
-    html += kpiCard('Impôts estimés', pfAppEuro(t.impotTotal), 'text-red', 'IR ' + pfAppEuro(t.ir) + ' · PS ' + pfAppEuro(t.ps));
-    html += '</div>';
-    html += '<div class="table-wrapper"><table class="data-table"><thead><tr><th>Bien</th><th>Régime</th><th class="col-number">Loyers</th><th class="col-number">Charges</th><th class="col-number">Base</th><th class="col-number">IR</th><th class="col-number">PS</th><th class="col-number">Total impôts</th><th>Statut</th></tr></thead><tbody>';
-    for(var i=0;i<rep.rows.length;i++){
-      var r=rep.rows[i];
-      var ok = r.declarationReady;
-      html += '<tr onclick="navigateTo(\'bien\',\''+r.bienId+'\')">';
-      html += '<td data-label="Bien"><strong>'+r.nom+'</strong><div class="text-xs text-secondary">'+r.nbMoisEncaisses+' mois encaissé(s)</div></td>';
-      html += '<td data-label="Régime">'+r.regimeLabel+'</td>';
-      html += '<td data-label="Loyers" class="col-number font-mono">'+pfAppEuro(r.loyersUtilises)+'</td>';
-      html += '<td data-label="Charges" class="col-number font-mono">'+pfAppEuro(r.chargesDeductibles)+'</td>';
-      html += '<td data-label="Base" class="col-number font-mono">'+pfAppEuro(r.baseImposable)+'</td>';
-      html += '<td data-label="IR" class="col-number font-mono">'+pfAppEuro(r.ir)+'</td>';
-      html += '<td data-label="PS" class="col-number font-mono">'+pfAppEuro(r.ps)+'</td>';
-      html += '<td data-label="Total" class="col-number font-mono" style="color:var(--color-red)">'+pfAppEuro(r.impotTotal)+'</td>';
-      html += '<td data-label="Statut">'+(ok?'<span class="badge badge-actif">Prêt à vérifier</span>':'<span class="badge badge-projet">À compléter</span>')+'</td>';
-      html += '</tr>';
-    }
-    html += '</tbody></table></div>';
-    html += '<div class="card mt-4"><div class="card-header"><div class="card-title">Détail annuel consolidé</div></div><div class="card-body-sm">';
-    html += tableRow('Loyers encaissés', pfAppEuro(t.loyersEncaisses));
-    html += tableRow('Taxe foncière', pfAppEuro(t.taxeFonciere));
-    html += tableRow('PNO', pfAppEuro(t.pno));
-    html += tableRow('Charges copropriété', pfAppEuro(t.copro));
-    html += tableRow('Frais de gestion', pfAppEuro(t.gestion));
-    html += tableRow('Assurance emprunteur', pfAppEuro(t.assuranceEmprunteur));
-    html += tableRow('Intérêts d’emprunt', pfAppEuro(t.interets));
-    html += tableRow('Travaux enregistrés', pfAppEuro(t.travauxTotal) + (t.travauxNonQualifies>0 ? ' <span class="text-xs text-amber">à qualifier</span>' : ''));
-    html += tableRow('Base imposable totale', '<strong>'+pfAppEuro(t.baseImposable)+'</strong>');
-    html += tableRow('Impôt sur le revenu estimé', '<span style="color:var(--color-red)">'+pfAppEuro(t.ir)+'</span>');
-    html += tableRow('Prélèvements sociaux', '<span style="color:var(--color-red)">'+pfAppEuro(t.ps)+'</span>');
-    html += tableRow('Total fiscal estimé', '<strong style="color:var(--color-red)">'+pfAppEuro(t.impotTotal)+'</strong>');
-    html += '</div></div>';
-    if(rep.avertissements.length){
-      html += '<div class="alert alert-warning mt-4"><div><strong>Points à vérifier avant déclaration</strong><br><ul style="margin:6px 0 0 18px">';
-      var max = compact ? Math.min(3, rep.avertissements.length) : rep.avertissements.length;
-      for(var w=0; w<max; w++) html += '<li>'+rep.avertissements[w]+'</li>';
-      if(compact && rep.avertissements.length>3) html += '<li>+'+(rep.avertissements.length-3)+' autre(s) point(s) dans la synthèse.</li>';
-      html += '</ul></div></div>';
-    }
-    html += '<div class="text-xs text-secondary mt-3">Important : cette carte prépare les montants utiles. Les travaux non qualifiés, le LMNP réel et les cas particuliers doivent être vérifiés avant déclaration.</div>';
-  }
-  html += '</div></div>';
-  return html;
-}
-
-function renderFiscalYearChange(year){
-  var target = gid('carte-fiscale-parc');
-  if(target){
-    var wrap = document.createElement('div');
-    wrap.innerHTML = renderCarteFiscaleParcHTML(parseInt(year,10), false);
-    target.parentNode.replaceChild(wrap.firstChild, target);
-  }
-}
-
-function injectFiscalDashboard(){
-  var flux = gid('dash-flux-mensuels');
-  var parent = flux && flux.parentNode ? flux.parentNode : null;
-  if(!parent) return;
-  var old = gid('dash-fiscal-mini');
-  if(old) old.parentNode.removeChild(old);
-  var rep = typeof calcFiscalParcPro === 'function' ? calcFiscalParcPro(new Date().getFullYear(), {projection:true}) : null;
-  if(!rep || !rep.rows.length) return;
-  var div = document.createElement('div');
-  div.id = 'dash-fiscal-mini';
-  div.className = 'card mb-6';
-  div.innerHTML = '<div class="card-header"><div><div class="card-title">Fiscalité estimée '+rep.annee+'</div><div class="text-xs text-secondary">Vue rapide · détail complet dans Synthèse</div></div><button class="btn btn-ghost btn-sm" onclick="navigateTo(\'cockpit\')">Voir détail →</button></div>'+
-    '<div class="card-body"><div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:0">'+
-    kpiCard('Loyers encaissés', pfAppEuro(rep.total.loyersEncaisses), '', '')+
-    kpiCard('Base imposable', pfAppEuro(rep.total.baseImposable), '', '')+
-    kpiCard('IR estimé', pfAppEuro(rep.total.ir), 'text-red', '')+
-    kpiCard('PS estimés', pfAppEuro(rep.total.ps), 'text-red', '')+
-    '</div></div>';
-  parent.insertBefore(div, flux.nextSibling);
-}
-
-function injectFiscalCockpit(){
-  var cont = gid('page-cockpit-content');
-  if(!cont) return;
-  var old = gid('carte-fiscale-parc');
-  if(old) old.parentNode.removeChild(old);
-  var html = renderCarteFiscaleParcHTML(new Date().getFullYear(), false);
-  if(!html) return;
-  var wrap = document.createElement('div');
-  wrap.innerHTML = html;
-  var ref = gid('cockpit-alertes');
-  if(ref && ref.parentNode === cont) cont.insertBefore(wrap.firstChild, ref.nextSibling);
-  else cont.insertBefore(wrap.firstChild, cont.firstChild);
-}
-
-if(typeof renderDashboard === 'function'){
-  var _pfBaseRenderDashboardFiscal = renderDashboard;
-  renderDashboard = function(){
-    _pfBaseRenderDashboardFiscal();
-    injectFiscalDashboard();
-  };
-}
-if(typeof renderCockpit === 'function'){
-  var _pfBaseRenderCockpitFiscal = renderCockpit;
-  renderCockpit = function(){
-    _pfBaseRenderCockpitFiscal();
-    injectFiscalCockpit();
-  };
 }
